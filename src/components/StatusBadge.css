@@ -1,0 +1,44 @@
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  padding: 8px 16px;
+  border: 1px solid var(--mic-steel);
+  border-radius: 999px;
+  background: var(--mic-graphite);
+  font-weight: 600;
+}
+
+.status__device {
+  color: var(--text-lo);
+  font-weight: 400;
+}
+
+.status__dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.status--ok .status__dot {
+  background: var(--ok-green);
+  box-shadow: 0 0 10px var(--ok-green);
+}
+
+.status--wait .status__dot {
+  background: var(--warn-amber);
+  animation: status-blink 1.4s ease-in-out infinite;
+}
+
+.status--bad .status__dot {
+  background: var(--mic-red-glow);
+  box-shadow: 0 0 10px var(--mic-red-glow);
+}
+
+@keyframes status-blink {
+  50% {
+    opacity: 0.3;
+  }
+}

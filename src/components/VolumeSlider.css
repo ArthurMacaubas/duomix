@@ -1,0 +1,128 @@
+.volume__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.volume__zone {
+  color: var(--mic-red-text);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.volume__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  color: var(--text-lo);
+}
+
+.volume__range {
+  flex: 1;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.volume__range::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--mic-red) var(--fill), #0a0a0c var(--fill));
+  box-shadow: var(--shadow-inset);
+}
+
+.volume__range::-moz-range-track {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--mic-red) var(--fill), #0a0a0c var(--fill));
+  box-shadow: var(--shadow-inset);
+}
+
+/* Botão do slider imitando um knob metálico. */
+.volume__range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 30px;
+  height: 30px;
+  margin-top: -10px;
+  border: 2px solid var(--mic-red-glow);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #5a5a63, #1d1d22 70%);
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.6);
+}
+
+.volume__range::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--mic-red-glow);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #5a5a63, #1d1d22 70%);
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.6);
+}
+
+.volume__range:disabled {
+  opacity: 0.5;
+}
+
+.volume__zones {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 32px;
+  color: var(--text-lo);
+  font-size: 13px;
+}
+
+.volume__msg {
+  margin: 12px 0 0;
+  color: var(--text-lo);
+  text-align: center;
+}
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 18px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, var(--mic-red), #b80500);
+  box-shadow: 0 6px 18px rgb(225 6 0 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.2);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  transition: transform var(--dur-fast), background var(--dur);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--mic-red-glow), var(--mic-red));
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(2px);
+  background: var(--mic-red-deep);
+}
+
+.btn-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-primary.is-busy {
+  opacity: 1;
+  animation: btn-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes btn-pulse {
+  50% {
+    box-shadow: 0 0 28px rgb(255 45 32 / 0.6);
+  }
+}

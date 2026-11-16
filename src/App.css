@@ -1,0 +1,88 @@
+.app {
+  width: min(100%, 560px);
+  min-height: 100vh;
+  margin: 0 auto;
+  border-inline: 1px solid var(--mic-steel);
+  background: rgb(14 14 16 / 0.6);
+}
+
+.app__main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: 24px 16px 40px;
+}
+
+.app__main > .problem,
+.app__main > .card {
+  width: 100%;
+}
+
+.meter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.meter__msg {
+  min-height: 3em;
+  margin: 0;
+  max-width: 36ch;
+  font-size: 19px;
+  font-weight: 600;
+  text-align: center;
+  transition: color var(--dur);
+}
+
+.meter__msg--idle,
+.meter__msg--muted {
+  color: var(--text-lo);
+}
+
+.meter__msg--low {
+  color: var(--text-hi);
+}
+
+.meter__msg--ok {
+  color: var(--ok-green);
+}
+
+.meter__msg--warn {
+  color: var(--warn-amber);
+}
+
+.card {
+  padding: 20px;
+  border: 1px solid var(--mic-steel);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--mic-graphite-2), var(--mic-graphite));
+  box-shadow: var(--shadow-raised);
+}
+
+.card__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.app__footer {
+  padding: 18px 16px 28px;
+  border-top: 1px solid var(--mic-steel);
+  color: var(--text-lo);
+  font-size: 14px;
+  text-align: center;
+}
+
+.app__footer strong {
+  color: var(--mic-red-text);
+  font-weight: 600;
+}
+
+@media (max-width: 420px) {
+  .app {
+    border-inline: none;
+  }
+}

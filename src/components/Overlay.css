@@ -1,0 +1,244 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.7);
+  backdrop-filter: blur(6px);
+  animation: overlay-in var(--dur) var(--ease);
+}
+
+.overlay--full {
+  background: rgb(8 8 10 / 0.92);
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.sheet {
+  position: relative;
+  width: min(100%, 480px);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--mic-steel);
+  border-radius: var(--radius-lg);
+  background: var(--mic-graphite);
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.6);
+}
+
+.sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.sheet__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sheet__wide {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field__label {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.field__select {
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid var(--mic-steel-hi);
+  border-radius: var(--radius-sm);
+  background: #0f0f12;
+}
+
+.advanced {
+  margin-top: 20px;
+  border-top: 1px solid var(--mic-steel);
+  padding-top: 14px;
+}
+
+.advanced summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--text-lo);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.advanced__list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 8px 0;
+}
+
+.advanced__list dt {
+  color: var(--text-lo);
+}
+
+.advanced__list dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.advanced__note {
+  margin: 12px 0 0;
+  color: var(--text-lo);
+  font-size: 14px;
+}
+
+/* ---------- Onboarding ---------- */
+
+.onboarding {
+  overflow: hidden;
+  padding-top: 32px;
+  text-align: center;
+}
+
+.onboarding__stripe {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 8px;
+  background: repeating-linear-gradient(-60deg, var(--mic-red) 0 14px, var(--mic-red-deep) 14px 22px);
+}
+
+.onboarding__dots {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+}
+
+.onboarding__dots li {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--mic-steel);
+  transition: background var(--dur), width var(--dur);
+}
+
+.onboarding__dots li.is-done {
+  width: 26px;
+  border-radius: 999px;
+  background: var(--mic-red);
+}
+
+.onboarding__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.onboarding__step .btn-primary {
+  margin-top: 6px;
+}
+
+.onboarding__step .problem {
+  text-align: left;
+}
+
+.onboarding__logo {
+  filter: drop-shadow(0 10px 30px rgb(225 6 0 / 0.35));
+}
+
+.onboarding__title {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+}
+
+.onboarding__text {
+  margin: 0;
+  color: var(--text-lo);
+  font-size: 17px;
+}
+
+.onboarding__skip {
+  margin-top: 16px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-lo);
+  text-decoration: underline;
+}
+
+/* Ilustração "conecte o cabo": o cabo pisca até o microfone ser encontrado. */
+.plug {
+  position: relative;
+  width: 200px;
+  height: 90px;
+}
+
+.plug__mic {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 38px;
+  height: 64px;
+  border-radius: 19px;
+  background: linear-gradient(180deg, #2e2e35, #111114);
+  border: 2px solid var(--mic-red);
+}
+
+.plug__cable {
+  position: absolute;
+  left: 48px;
+  top: 52px;
+  width: 104px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--mic-steel-hi);
+  animation: plug-blink 1.2s ease-in-out infinite;
+}
+
+.plug__usb {
+  position: absolute;
+  right: 18px;
+  top: 44px;
+  width: 30px;
+  height: 20px;
+  border-radius: 3px;
+  background: var(--mic-steel-hi);
+  animation: plug-blink 1.2s ease-in-out infinite;
+}
+
+.plug.is-ready .plug__cable,
+.plug.is-ready .plug__usb {
+  animation: none;
+  background: var(--ok-green);
+  box-shadow: 0 0 12px var(--ok-green);
+}
+
+@keyframes plug-blink {
+  50% {
+    background: var(--mic-red-glow);
+    box-shadow: 0 0 12px var(--mic-red-glow);
+  }
+}
