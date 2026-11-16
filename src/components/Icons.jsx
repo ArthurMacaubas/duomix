@@ -71,3 +71,16 @@ export const CloseIcon = ({ size = 22 }) => (
     <path d="M18 6 6 18M6 6l12 12" />
   </svg>
 );
+
+export const LevelIcon = ({ size = 22 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <path d="M4 20V10M10 20V4M16 20v-8M22 20v-5" />
+    <path d="M2 7h4M8 4h4M14 9h4M20 12h4" />
+  </svg>
+);
+
+export const SwapIcon = ({ size = 22 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <path d="M7 4v14M3 14l4 4 4-4M17 20V6M13 10l4-4 4 4" />
+  </svg>
+);

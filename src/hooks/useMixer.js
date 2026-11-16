@@ -18,6 +18,13 @@ import rnnoiseSimdWasmUrl from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wa
  *
  * Em modo mono o receptor já mistura os dois: só o canal 1 recebe som.
  *
+ * Depois do portão, cada canal ainda tem:
+ *   - Nivelar voz: compressor que sobe quem fala baixo e segura quem grita.
+ *   - Anti-vazamento: quando uma pessoa fala e a outra não, o microfone da outra
+ *     abaixa 12 dB (ele só estaria captando a voz "vazada" de quem fala).
+ * No master, um limitador impede a mistura de estourar.
+ * Mesmo no mudo, o detector continua ouvindo para avisar "você está no mudo".
+ *
  * Isolador de voz (IA): entre o filtro de graves e o fader, cada canal pode passar por
  * um modelo de rede neural (GTCRN; RNNoise se o GTCRN não carregar) que separa a voz
  * do resto e tira o barulho até enquanto a pessoa fala. Ele só é baixado na primeira
@@ -45,6 +52,21 @@ const NOISE_PRESETS = {
 const GATE_MARGIN_DB = 9;
 const GATE_FLOOR = Math.pow(10, -35 / 20);
 const GATE_HOLD_MS = 300;
+
+// Nivelar voz (compressor por canal) e limitador do master.
+// O DynamicsCompressorNode já aplica um ganho de compensação automático (spec Web Audio:
+// makeup = (1 / curva(0 dB))^0.6, uns +11 dB aqui). O "makeupDb" negativo desconta isso.
+// Curva medida: -40 dB -> -37 | -20 dB -> -20 | -3 dB -> -15 (faixa de 37 dB vira 22 dB).
+const LEVELER = { threshold: -26, knee: 10, ratio: 3.5, attack: 0.005, release: 0.25, makeupDb: -6 };
+const LIMITER = { threshold: -3, knee: 0, ratio: 20, attack: 0.001, release: 0.1 };
+// Anti-vazamento: quem fala precisa estar 6 dB acima do outro para o outro abaixar 12 dB.
+const DUCK_DOMINANCE_DB = 6;
+const DUCK_GAIN = Math.pow(10, -12 / 20);
+const DUCK_HOLD_MS = 350;
+// Aviso de mudo: fala por 0,6 s seguidos acima de -48 dB enquanto está no mudo.
+const MUTED_TALK_MS = 600;
+const MUTED_TALK_MIN_DB = -48;
+const MUTED_TALK_CLEAR_MS = 1500;
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const dbToNorm = (db) => clamp((db - MIN_DB) / (MAX_DB - MIN_DB), 0, 1);
@@ -91,6 +113,7 @@ function loadChannels() {
       volume: Number.isFinite(s.volume) ? s.volume : 50,
       noise: NOISE_LEVELS.includes(s.noise) ? s.noise : 'leve',
       isolate: s.isolate === true,
+      leveler: s.leveler !== false,
       muted: false,
     };
   });
@@ -115,6 +138,7 @@ function errorToStatus(err) {
 const emptyMeters = () => ({
   ch: Array.from({ length: CHANNELS }, () => ({ level: 0, voice: 0, clip: false })),
   master: 0,
+  limiting: false,
 });
 
 export function useMixer() {
@@ -130,10 +154,14 @@ export function useMixer() {
     volume: readStored('masterVolume', 50),
     muted: false,
     monitor: false,
+    antiBleed: readStored('antiBleed', true),
   }));
   const [meters, setMeters] = useState(emptyMeters);
   const [floors, setFloors] = useState(() => new Array(CHANNELS).fill(-70));
   const [gates, setGates] = useState(() => new Array(CHANNELS).fill(false));
+  const [ducked, setDucked] = useState(() => new Array(CHANNELS).fill(false));
+  // Aviso "você está no mudo": por canal e para o mudo geral.
+  const [mutedTalking, setMutedTalking] = useState(() => ({ ch: new Array(CHANNELS).fill(false), master: false }));
   const [calibrating, setCalibrating] = useState(false);
   // idle | loading | ready | error ; kind: 'gtcrn' | 'rnnoise'
   const [isolator, setIsolator] = useState({ status: 'idle', kind: null });
@@ -149,6 +177,7 @@ export function useMixer() {
   const statusRef = useRef(status);
   const channelsRef = useRef(channels);
   const channelCountRef = useRef(channelCount);
+  const masterRef = useRef(master);
   const procRef = useRef(
     Array.from({ length: CHANNELS }, () => ({
       floor: -70,
@@ -158,13 +187,21 @@ export function useMixer() {
       voice: 0,
       lastLoud: 0,
       clipUntil: 0,
+      speakingUntil: 0,
+      ducked: false,
+      duckUntil: 0,
+      talkSince: 0,
+      quietSince: 0,
+      mutedTalking: false,
     })),
   );
+  const masterTalkRef = useRef(false);
   const masterProcRef = useRef({ level: 0 });
 
   statusRef.current = status;
   channelsRef.current = channels;
   channelCountRef.current = channelCount;
+  masterRef.current = master;
 
   const refreshDevices = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return [];
@@ -201,6 +238,12 @@ export function useMixer() {
     const masterMute = ctx.createGain();
     const masterAnalyser = ctx.createAnalyser();
     masterAnalyser.fftSize = 2048;
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = LIMITER.threshold;
+    limiter.knee.value = LIMITER.knee;
+    limiter.ratio.value = LIMITER.ratio;
+    limiter.attack.value = LIMITER.attack;
+    limiter.release.value = LIMITER.release;
 
     const ch = channelsRef.current.map((c, i) => {
       const hp = ctx.createBiquadFilter();
@@ -212,6 +255,9 @@ export function useMixer() {
       const detector = ctx.createAnalyser();
       detector.fftSize = 1024;
       const gate = ctx.createGain();
+      const comp = ctx.createDynamicsCompressor();
+      const makeup = ctx.createGain();
+      const duck = ctx.createGain();
       const mute = ctx.createGain();
       mute.gain.value = c.muted ? 0 : 1;
       const analyser = ctx.createAnalyser();
@@ -228,18 +274,22 @@ export function useMixer() {
       wet.connect(fader);
       fader.connect(detector);
       fader.connect(gate);
-      gate.connect(mute);
+      gate.connect(comp);
+      comp.connect(makeup);
+      makeup.connect(duck);
+      duck.connect(mute);
       mute.connect(analyser);
       mute.connect(sum);
-      return { hp, dry, wet, iso: null, fader, detector, gate, mute, analyser };
+      return { hp, dry, wet, iso: null, fader, detector, gate, comp, makeup, duck, mute, analyser };
     });
 
     sum.connect(masterGain);
-    masterGain.connect(masterMute);
+    masterGain.connect(limiter);
+    limiter.connect(masterMute);
     masterMute.connect(masterAnalyser);
 
     ctxRef.current = ctx;
-    nodesRef.current = { splitter, ch, sum, masterGain, masterMute, masterAnalyser };
+    nodesRef.current = { splitter, ch, sum, masterGain, limiter, masterMute, masterAnalyser };
     monitorOnRef.current = false;
     setSampleRate(ctx.sampleRate);
     return ctx;
@@ -274,6 +324,7 @@ export function useMixer() {
         setIsolator({ status: 'ready', kind: 'gtcrn' });
         return true;
       } catch (err) {
+        if (ctxRef.current !== ctx) return false; // a mesa foi fechada no meio do carregamento
         console.warn('GTCRN indisponível, usando RNNoise.', err);
       }
       try {
@@ -284,6 +335,7 @@ export function useMixer() {
         setIsolator({ status: 'ready', kind: 'rnnoise' });
         return true;
       } catch (err) {
+        if (ctxRef.current !== ctx) return false;
         console.error('Isolador de voz indisponível.', err);
         setIsolator({ status: 'error', kind: null });
         isoLoadRef.current = null; // permite tentar de novo
@@ -376,8 +428,8 @@ export function useMixer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Portões de ruído e calibração: loop próprio de 30 ms, separado da tela.
-  // Com a janela escondida os portões ficam abertos: na dúvida, a voz passa.
+  // Portões, anti-vazamento, aviso de mudo e calibração: loop próprio de 30 ms, separado da tela.
+  // Com a janela escondida, portões e anti-vazamento ficam soltos: na dúvida, a voz passa.
   useEffect(() => {
     const buf = new Float32Array(1024);
     let ticks = 0;
@@ -391,17 +443,33 @@ export function useMixer() {
       setGates((g) => g.map((v, j) => (j === i ? closed : v)));
     };
 
+    const setDuck = (i, on) => {
+      const p = procRef.current[i];
+      const node = nodesRef.current?.ch[i]?.duck;
+      if (on === p.ducked || !node || !ctxRef.current) return;
+      node.gain.setTargetAtTime(on ? DUCK_GAIN : 1, ctxRef.current.currentTime, on ? 0.02 : 0.25);
+      p.ducked = on;
+      setDucked((d) => d.map((v, j) => (j === i ? on : v)));
+    };
+
+    let lastTalk = { ch: new Array(CHANNELS).fill(false), master: false };
+    const pre = new Array(CHANNELS).fill(-120);
+
     const process = () => {
       const nodes = nodesRef.current;
       if (!nodes || !streamRef.current) return;
       const now = performance.now();
+      const active = channelCountRef.current;
+      if (document.hidden) {
+        for (let i = 0; i < CHANNELS; i++) {
+          setGate(i, false);
+          setDuck(i, false);
+        }
+        return;
+      }
       for (let i = 0; i < CHANNELS; i++) {
         const p = procRef.current[i];
         const cfg = channelsRef.current[i];
-        if (document.hidden) {
-          setGate(i, false);
-          continue;
-        }
         nodes.ch[i].detector.getFloatTimeDomainData(buf);
         const preDb = rmsDb(buf);
         if (!cfg.muted) {
@@ -417,7 +485,52 @@ export function useMixer() {
         if (calibRef.current && !cfg.muted && preDb > SILENCE_DB) {
           calibRef.current[i].push(preDb - 20 * Math.log10(sliderToGain(cfg.volume)));
         }
+
+        pre[i] = preDb;
+        if (preDb > p.floor + GATE_MARGIN_DB && preDb > SILENCE_DB) p.speakingUntil = now + DUCK_HOLD_MS;
+
+        // Fala contínua (para o aviso de mudo), com folga para pausas entre palavras.
+        const talking = preDb > Math.max(p.floor + GATE_MARGIN_DB, MUTED_TALK_MIN_DB);
+        if (talking) {
+          if (!p.talkSince) p.talkSince = now;
+          p.quietSince = 0;
+          if (now - p.talkSince >= MUTED_TALK_MS) p.mutedTalking = true;
+        } else {
+          p.talkSince = 0;
+          if (!p.quietSince) p.quietSince = now;
+          if (now - p.quietSince >= MUTED_TALK_CLEAR_MS) p.mutedTalking = false;
+        }
       }
+
+      // Quem domina: outro canal falando e pelo menos 6 dB mais alto que este.
+      const dominatedBy = (i) => {
+        for (let j = 0; j < active; j++) {
+          if (j === i || channelsRef.current[j].muted) continue;
+          if (now < procRef.current[j].speakingUntil && pre[j] - pre[i] > DUCK_DOMINANCE_DB) return true;
+        }
+        return false;
+      };
+
+      // Anti-vazamento: abaixa o microfone de quem só está captando a voz do outro.
+      for (let i = 0; i < CHANNELS; i++) {
+        const p = procRef.current[i];
+        if (masterRef.current.antiBleed && active >= 2 && i < active && dominatedBy(i)) {
+          p.duckUntil = now + DUCK_HOLD_MS;
+        }
+        setDuck(i, now < p.duckUntil && masterRef.current.antiBleed);
+      }
+
+      // Aviso "você está no mudo": ignora a voz vazada de quem está falando no outro microfone.
+      const talkCh = procRef.current.map((p, i) => i < active && p.mutedTalking && !dominatedBy(i));
+      const next = {
+        ch: talkCh.map((t, i) => t && channelsRef.current[i].muted),
+        master: masterRef.current.muted && talkCh.some((t, i) => t && !channelsRef.current[i].muted),
+      };
+      if (next.master !== lastTalk.master || next.ch.some((v, i) => v !== lastTalk.ch[i])) {
+        lastTalk = next;
+        setMutedTalking(next);
+      }
+
       if (++ticks % 30 === 0) setFloors(procRef.current.map((p) => Math.round(p.floor)));
     };
 
@@ -454,8 +567,10 @@ export function useMixer() {
       nodes.masterAnalyser.getFloatTimeDomainData(buf);
       const m = masterProcRef.current;
       m.level = smooth(m.level, dbToNorm(rmsDb(buf)));
+      // reduction: quantos dB o limitador está segurando agora.
+      if (nodes.limiter.reduction < -1) m.limitUntil = now + 800;
 
-      setMeters({ ch, master: m.level });
+      setMeters({ ch, master: m.level, limiting: now < (m.limitUntil ?? 0) });
     };
 
     raf = requestAnimationFrame(tick);
@@ -485,6 +600,14 @@ export function useMixer() {
         n.fader.gain.setTargetAtTime(sliderToGain(c.volume), ctx.currentTime, 0.03);
         n.mute.gain.setTargetAtTime(c.muted ? 0 : 1, ctx.currentTime, 0.01);
         n.hp.frequency.setTargetAtTime(NOISE_PRESETS[c.noise].highpass, ctx.currentTime, 0.05);
+        // Nivelar voz: compressor ligado, ou neutro (ratio 1 = não mexe no som).
+        const lv = c.leveler;
+        n.comp.threshold.setTargetAtTime(lv ? LEVELER.threshold : 0, ctx.currentTime, 0.05);
+        n.comp.knee.setTargetAtTime(lv ? LEVELER.knee : 0, ctx.currentTime, 0.05);
+        n.comp.ratio.setTargetAtTime(lv ? LEVELER.ratio : 1, ctx.currentTime, 0.05);
+        n.comp.attack.value = LEVELER.attack;
+        n.comp.release.value = LEVELER.release;
+        n.makeup.gain.setTargetAtTime(lv ? Math.pow(10, LEVELER.makeupDb / 20) : 1, ctx.currentTime, 0.05);
         // Isolador: troca suave entre o caminho direto e o caminho pela IA.
         const useIso = c.isolate && !!n.iso;
         n.wet.gain.setTargetAtTime(useIso ? 1 : 0, ctx.currentTime, 0.03);
@@ -494,7 +617,7 @@ export function useMixer() {
     }
     writeStored(
       'channels',
-      channels.map(({ name, volume, noise, isolate }) => ({ name, volume, noise, isolate })),
+      channels.map(({ name, volume, noise, isolate, leveler }) => ({ name, volume, noise, isolate, leveler })),
     );
   }, [channels, isolator.status, status, ensureIsolator]);
 
@@ -514,6 +637,7 @@ export function useMixer() {
       }
     }
     writeStored('masterVolume', master.volume);
+    writeStored('antiBleed', master.antiBleed);
   }, [master, status]);
 
   useEffect(() => {
@@ -588,6 +712,8 @@ export function useMixer() {
     meters,
     floors,
     gates,
+    ducked,
+    mutedTalking,
     calibrating,
     calibrationMs: CALIBRATION_MS,
     isolator,

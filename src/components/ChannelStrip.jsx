@@ -1,6 +1,7 @@
 import SegmentMeter from './SegmentMeter.jsx';
 import Fader, { dbText, zoneOf } from './Fader.jsx';
-import { MicIcon, MicOffIcon, SparkleIcon } from './Icons.jsx';
+import ToggleRow from './ToggleRow.jsx';
+import { LevelIcon, MicIcon, MicOffIcon, SparkleIcon } from './Icons.jsx';
 import './ChannelStrip.css';
 
 const NOISE_OPTIONS = [
@@ -34,6 +35,9 @@ export default function ChannelStrip({
   inactive,
   calibrating,
   isolator,
+  ducked,
+  duckedBy,
+  mutedTalking,
   onChange,
   onRetryIsolator,
 }) {
@@ -60,7 +64,17 @@ export default function ChannelStrip({
         />
       </header>
 
-      <p className={`strip__msg strip__msg--${msg.tone}`}>{msg.text}</p>
+      {mutedTalking ? (
+        <button type="button" className="muted-alert" onClick={() => onChange({ muted: false })}>
+          <MicOffIcon size={20} />
+          <span>
+            <strong>Você está no mudo!</strong>
+            <span>Toque para ligar</span>
+          </span>
+        </button>
+      ) : (
+        <p className={`strip__msg strip__msg--${msg.tone}`}>{msg.text}</p>
+      )}
 
       <div className="strip__body">
         <SegmentMeter level={disabled ? 0 : meter.level} clip={!disabled && meter.clip} />
@@ -74,6 +88,9 @@ export default function ChannelStrip({
 
       <p className="strip__readout">
         <strong>{zoneOf(cfg.volume)}</strong> · {dbText(cfg.volume)}
+      </p>
+      <p className={`strip__duck${ducked && !disabled && !cfg.muted ? ' is-on' : ''}`} aria-hidden={!ducked || cfg.muted}>
+        ↓ Abaixado: {duckedBy || 'outro microfone'} falando
       </p>
 
       <button
@@ -117,6 +134,18 @@ export default function ChannelStrip({
             Tentar de novo
           </button>
         )}
+      </div>
+
+      <div className="strip__leveler">
+        <ToggleRow
+          icon={<LevelIcon size={20} />}
+          label="Nivelar voz"
+          help="Sobe quem fala baixo e segura quem fala alto, para a voz ficar sempre no mesmo volume sem mexer no fader."
+          checked={cfg.leveler}
+          onChange={(leveler) => onChange({ leveler })}
+          disabled={disabled}
+        />
+        <span className="strip__ambient strip__leveler-help">Sobe quem fala baixo e segura quem grita</span>
       </div>
 
       <div className="strip__noise">

@@ -2,11 +2,22 @@ import Knob from './Knob.jsx';
 import SegmentMeter from './SegmentMeter.jsx';
 import ToggleRow from './ToggleRow.jsx';
 import { dbText, zoneOf } from './Fader.jsx';
-import { HeadphonesIcon, MicIcon, MicOffIcon, SparkleIcon } from './Icons.jsx';
+import { HeadphonesIcon, MicIcon, MicOffIcon, SparkleIcon, SwapIcon } from './Icons.jsx';
 import './MasterStrip.css';
 
 /** Saída geral: soma dos dois microfones, com volume no botão giratório, mudo geral e fone. */
-export default function MasterStrip({ master, level, ready, calibrating, autoMessage, onChange, onAuto }) {
+export default function MasterStrip({
+  master,
+  level,
+  limiting,
+  mutedTalking,
+  canAntiBleed,
+  ready,
+  calibrating,
+  autoMessage,
+  onChange,
+  onAuto,
+}) {
   const disabled = !ready;
   return (
     <section className="master" aria-labelledby="master-title">
@@ -28,6 +39,19 @@ export default function MasterStrip({ master, level, ready, calibrating, autoMes
       </p>
 
       <SegmentMeter level={disabled ? 0 : level} segments={24} horizontal />
+      <p className={`master__limit${limiting && !disabled ? ' is-on' : ''}`} aria-hidden={!limiting}>
+        🛡️ Segurando o estouro
+      </p>
+
+      {mutedTalking && (
+        <button type="button" className="muted-alert muted-alert--wide" onClick={() => onChange({ muted: false })}>
+          <MicOffIcon size={22} />
+          <span>
+            <strong>Tudo está no mudo e alguém está falando!</strong>
+            <span>Toque para ligar a saída</span>
+          </span>
+        </button>
+      )}
 
       <button
         type="button"
@@ -43,6 +67,18 @@ export default function MasterStrip({ master, level, ready, calibrating, autoMes
       </button>
 
       <div className="master__toggle">
+        <ToggleRow
+          icon={<SwapIcon />}
+          label="Anti-vazamento"
+          help={
+            canAntiBleed
+              ? 'Quando uma pessoa fala, o microfone da outra abaixa um pouco. Assim a voz não chega duas vezes (com eco) pelos dois microfones.'
+              : 'Precisa dos dois microfones em canais separados (receptor em estéreo).'
+          }
+          checked={master.antiBleed}
+          onChange={(antiBleed) => onChange({ antiBleed })}
+          disabled={disabled || !canAntiBleed}
+        />
         <ToggleRow
           icon={<HeadphonesIcon />}
           label="Me ouvir no fone"

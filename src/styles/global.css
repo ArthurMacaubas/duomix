@@ -103,3 +103,50 @@ button {
     box-shadow: 0 0 30px rgb(245 217 10 / 0.6);
   }
 }
+
+/* Aviso "você está no mudo": amarelo, pulsa devagar e liga o microfone ao tocar. */
+.muted-alert {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 2px solid var(--yellow);
+  border-radius: var(--radius-sm);
+  background: rgb(245 217 10 / 0.14);
+  color: var(--text-hi);
+  text-align: left;
+  animation: muted-alert-pulse 1.6s ease-in-out infinite;
+}
+
+.muted-alert svg {
+  flex: none;
+  color: var(--yellow);
+}
+
+.muted-alert > span {
+  display: grid;
+  line-height: 1.25;
+}
+
+.muted-alert strong {
+  color: var(--yellow);
+  font-size: 15px;
+}
+
+.muted-alert span span {
+  color: var(--text-lo);
+  font-size: 13px;
+}
+
+.muted-alert:hover {
+  background: rgb(245 217 10 / 0.22);
+}
+
+@keyframes muted-alert-pulse {
+  50% {
+    box-shadow: 0 0 22px rgb(245 217 10 / 0.45);
+  }
+}

@@ -63,6 +63,16 @@ export default function App() {
 
   useEffect(() => () => clearTimeout(autoMsgTimer.current), []);
 
+  const { mutedTalking } = mixer;
+  useEffect(() => {
+    if (mutedTalking.master) setAnnounce('Tudo está no mudo e alguém está falando');
+    else {
+      const i = mutedTalking.ch.findIndex(Boolean);
+      if (i >= 0) setAnnounce(`${channels[i].name}: você está no mudo`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mutedTalking]);
+
   const handleAuto = useCallback(async () => {
     setAutoMessage('');
     const r = await mixer.autoAdjust();
@@ -111,6 +121,9 @@ export default function App() {
                 inactive={i >= mixer.channelCount}
                 calibrating={mixer.calibrating}
                 isolator={mixer.isolator}
+                ducked={mixer.ducked[i]}
+                duckedBy={channels.find((_, j) => j !== i && j < mixer.channelCount)?.name}
+                mutedTalking={mixer.mutedTalking.ch[i]}
                 onChange={(patch) => setChannel(i, patch)}
                 onRetryIsolator={mixer.retryIsolator}
               />
@@ -118,6 +131,9 @@ export default function App() {
             <MasterStrip
               master={master}
               level={mixer.meters.master}
+              limiting={mixer.meters.limiting}
+              mutedTalking={mixer.mutedTalking.master}
+              canAntiBleed={mixer.channelCount >= 2}
               ready={ready}
               calibrating={mixer.calibrating}
               autoMessage={autoMessage}

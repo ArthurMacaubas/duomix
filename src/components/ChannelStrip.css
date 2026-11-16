@@ -346,3 +346,73 @@
     justify-self: start;
   }
 }
+
+/* Anti-vazamento: aviso discreto quando o canal foi abaixado. */
+.strip__duck {
+  min-height: 1.4em;
+  margin: -8px 0 0;
+  color: var(--cyan);
+  font-size: 13px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity var(--dur);
+}
+
+.strip__duck.is-on {
+  opacity: 1;
+}
+
+.strip__leveler {
+  margin: -6px 0 -8px;
+}
+
+.strip__leveler .toggle__icon {
+  color: var(--cyan);
+}
+
+.strip__leveler-help {
+  display: none;
+}
+
+@container strip (max-width: 260px) {
+  .strip__leveler .toggle__icon {
+    display: none;
+  }
+
+  .strip__leveler .toggle__label {
+    font-size: 15px;
+    white-space: nowrap;
+  }
+
+  .strip__leveler .toggle__main {
+    gap: 6px;
+  }
+
+  /* Sem espaço para o "?": a explicação fica sempre visível embaixo. */
+  .strip__leveler .toggle__help-btn {
+    display: none;
+  }
+
+  .strip__leveler .toggle__label {
+    margin-right: auto;
+  }
+
+  .strip__leveler-help {
+    display: block;
+    margin-top: -10px;
+  }
+
+  .strip__leveler .switch {
+    width: 48px;
+    height: 28px;
+  }
+
+  .strip__leveler .switch__knob {
+    width: 20px;
+    height: 20px;
+  }
+
+  .strip__leveler .switch.is-on .switch__knob {
+    transform: translateX(20px);
+  }
+}

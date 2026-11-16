@@ -107,3 +107,25 @@
   font-size: 14px;
   text-align: center;
 }
+
+/* Limitador agindo: aparece só quando está segurando um estouro. */
+.master__limit {
+  min-height: 1.4em;
+  margin: -8px 0 0;
+  color: var(--cyan);
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity var(--dur);
+}
+
+.master__limit.is-on {
+  opacity: 1;
+}
+
+.master .muted-alert--wide {
+  align-self: stretch;
+}
+
+.master__toggle .toggle__icon {
+  color: var(--cyan);
+}
