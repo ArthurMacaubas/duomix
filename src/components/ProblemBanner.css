@@ -2,10 +2,10 @@
   display: flex;
   gap: 16px;
   padding: 18px;
-  border: 1px solid var(--mic-steel);
-  border-left: 4px solid var(--warn-amber);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--warn);
   border-radius: var(--radius-md);
-  background: var(--mic-graphite);
+  background: var(--panel);
 }
 
 .problem__icon {
@@ -16,7 +16,7 @@
   height: 36px;
   border-radius: 50%;
   background: rgb(255 176 32 / 0.15);
-  color: var(--warn-amber);
+  color: var(--warn);
   font-family: var(--font-display);
   font-size: 22px;
   font-weight: 700;
@@ -40,7 +40,7 @@
 .btn-secondary {
   min-height: 44px;
   padding: 10px 20px;
-  border: 1px solid var(--mic-red);
+  border: 1px solid var(--yellow);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-hi);
@@ -49,5 +49,5 @@
 }
 
 .btn-secondary:hover {
-  background: rgb(225 6 0 / 0.15);
+  background: rgb(245 217 10 / 0.12);
 }

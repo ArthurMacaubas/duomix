@@ -1,5 +1,5 @@
 .toggle + .toggle {
-  border-top: 1px solid var(--mic-steel);
+  border-top: 1px solid var(--edge);
 }
 
 .toggle__main {
@@ -12,7 +12,7 @@
 .toggle__icon {
   display: grid;
   place-items: center;
-  color: var(--mic-red-text);
+  color: var(--yellow);
 }
 
 .toggle__label {
@@ -68,8 +68,8 @@
 }
 
 .switch.is-on {
-  border-color: var(--mic-red);
-  background: var(--mic-red);
+  border-color: var(--yellow);
+  background: var(--yellow);
 }
 
 .switch.is-on .switch__knob {

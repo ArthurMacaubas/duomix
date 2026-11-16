@@ -1,78 +1,79 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useMicrophone } from './hooks/useMicrophone.js';
+import { CHANNELS, useMixer } from './hooks/useMixer.js';
 import Header from './components/Header.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
-import MicGrille from './components/MicGrille.jsx';
-import MuteButton from './components/MuteButton.jsx';
-import VolumeSlider from './components/VolumeSlider.jsx';
-import ToggleRow from './components/ToggleRow.jsx';
 import ProblemBanner from './components/ProblemBanner.jsx';
+import ChannelStrip from './components/ChannelStrip.jsx';
+import MasterStrip from './components/MasterStrip.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import Onboarding from './components/Onboarding.jsx';
-import NoiseReducer from './components/NoiseReducer.jsx';
-import { HeadphonesIcon } from './components/Icons.jsx';
 import './App.css';
 
 function readOnboarded() {
   try {
-    return localStorage.getItem('mm:onboarded') === '1';
+    return localStorage.getItem('dm:onboarded') === '1';
   } catch {
     return false;
   }
 }
 
-/** Frase de feedback no lugar de números: o que o leigo precisa saber. */
-function voiceMessage({ status, muted, calibrating, voiceLevel }) {
-  if (status !== 'ready') return { tone: 'idle', text: 'Esperando o microfone…' };
-  if (calibrating) return { tone: 'ok', text: 'Fale normalmente… estou ajustando.' };
-  if (muted) return { tone: 'muted', text: 'Você está no mudo. Ninguém te ouve.' };
-  if (voiceLevel < 0.15) return { tone: 'idle', text: 'Fale algo para testar…' };
-  if (voiceLevel < 0.45) return { tone: 'low', text: 'Tá meio baixinho. Chegue mais perto ou toque em "Ajustar sozinho".' };
-  if (voiceLevel < 0.88) return { tone: 'ok', text: 'Estou te ouvindo bem! 👍' };
-  return { tone: 'warn', text: 'Opa, tá estourando! Afaste um pouco.' };
+function describeAuto(results, channels) {
+  const done = [];
+  const silent = [];
+  results.forEach((r, i) => {
+    if (typeof r === 'number') done.push(channels[i].name);
+    else if (r === 'silent') silent.push(channels[i].name);
+  });
+  if (!done.length) return 'Não consegui ouvir ninguém. Cheguem mais perto dos microfones e tentem de novo.';
+  let text = `Pronto! Ajustei ${done.join(' e ')}. ✅`;
+  if (silent.length) text += ` Não ouvi ${silent.join(' e ')}.`;
+  return text;
 }
 
 export default function App() {
-  const mic = useMicrophone();
+  const mixer = useMixer();
   const [showSettings, setShowSettings] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !readOnboarded());
   const [autoMessage, setAutoMessage] = useState('');
+  const [announce, setAnnounce] = useState('');
   const autoMsgTimer = useRef(0);
 
-  const ready = mic.status === 'ready';
-  const message = voiceMessage(mic);
+  const ready = mixer.status === 'ready';
+  const { channels, master, setChannel, setMaster } = mixer;
 
-  // Atalho Ctrl+M para mudo (funciona com o app em foco).
+  // Atalhos: Ctrl+M mudo geral; Alt+1 / Alt+2 mudo de cada microfone.
   useEffect(() => {
     const onKey = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm' && ready) {
+      if (!ready) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
         e.preventDefault();
-        mic.toggleMute();
+        setMaster({ muted: !master.muted });
+        setAnnounce(master.muted ? 'Saída geral ligada' : 'Tudo no mudo');
+      } else if (e.altKey && ['1', '2'].includes(e.key)) {
+        const i = Number(e.key) - 1;
+        if (i >= mixer.channelCount) return;
+        e.preventDefault();
+        setChannel(i, { muted: !channels[i].muted });
+        setAnnounce(`${channels[i].name} ${channels[i].muted ? 'ligado' : 'no mudo'}`);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [ready, mic.toggleMute]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, master.muted, channels, mixer.channelCount, setChannel, setMaster]);
 
   useEffect(() => () => clearTimeout(autoMsgTimer.current), []);
 
   const handleAuto = useCallback(async () => {
     setAutoMessage('');
-    const r = await mic.autoAdjust();
-    setAutoMessage(
-      r.ok
-        ? 'Pronto! Ajustei o volume da sua voz. ✅'
-        : r.reason === 'silent'
-          ? 'Não consegui te ouvir. Chegue mais perto e tente de novo.'
-          : '',
-    );
+    const r = await mixer.autoAdjust();
+    setAutoMessage(r.results.length ? describeAuto(r.results, channels) : '');
     clearTimeout(autoMsgTimer.current);
-    autoMsgTimer.current = setTimeout(() => setAutoMessage(''), 6000);
-  }, [mic]);
+    autoMsgTimer.current = setTimeout(() => setAutoMessage(''), 8000);
+  }, [mixer, channels]);
 
   const finishOnboarding = () => {
     try {
-      localStorage.setItem('mm:onboarded', '1');
+      localStorage.setItem('dm:onboarded', '1');
     } catch {
       /* sem armazenamento: o guia aparece de novo na próxima vez */
     }
@@ -85,74 +86,57 @@ export default function App() {
 
       <main className="app__main">
         <div className="app__top">
-          <StatusBadge status={mic.status} />
-          {!ready && !['idle', 'requesting'].includes(mic.status) && (
-            <ProblemBanner status={mic.status} onRetry={mic.retry} />
+          <StatusBadge status={mixer.status} channelCount={mixer.channelCount} />
+          {!ready && !['idle', 'requesting'].includes(mixer.status) && (
+            <ProblemBanner status={mixer.status} onRetry={mixer.retry} />
           )}
         </div>
 
-        <div className="layout">
-          {/* O "corpo do microfone": metal escovado, parafusos e plaqueta gravada. */}
-          <section className="device" aria-label="Seu microfone">
-            <span className="device__screw device__screw--tl" aria-hidden="true" />
-            <span className="device__screw device__screw--tr" aria-hidden="true" />
-            <span className="device__screw device__screw--bl" aria-hidden="true" />
-            <span className="device__screw device__screw--br" aria-hidden="true" />
-
-            <div className="device__plate">
-              <span className={`device__led${ready ? (mic.muted ? ' is-muted' : ' is-live') : ''}`} aria-hidden="true" />
-              <span className="device__brand">Rubro</span>
-              <span className="device__model">{ready ? mic.deviceLabel : 'sem microfone'}</span>
-            </div>
-
-            <MicGrille bands={mic.bands} idle={!ready} />
-            <p className={`meter__msg meter__msg--${message.tone}`}>{message.text}</p>
-            <MuteButton muted={mic.muted} level={mic.level} disabled={!ready} onToggle={mic.toggleMute} />
-          </section>
-
-          <div className="controls">
-            <VolumeSlider
-              value={mic.volume}
-              onChange={mic.setVolume}
-              onAuto={handleAuto}
-              calibrating={mic.calibrating}
-              autoMessage={autoMessage}
-              disabled={!ready}
-            />
-    
-            <NoiseReducer
-              value={mic.noiseLevel}
-              onChange={mic.setNoiseLevel}
-              floorDb={mic.noiseFloorDb}
-              gateClosed={mic.gateClosed}
-              disabled={!ready}
-            />
-    
-            <section className="card" aria-label="Extras">
-              <ToggleRow
-                icon={<HeadphonesIcon />}
-                label="Me ouvir no fone"
-                help="Você escuta a própria voz no fone de ouvido enquanto fala, já com o redutor de ruído. Use com fone para não dar microfonia."
-                checked={mic.monitor}
-                onChange={mic.setMonitor}
-                disabled={!ready}
+        {/* A mesa: corpo azul-ardósia com o friso creme do estojo. */}
+        <div className="console">
+          <div className="console__rail" aria-hidden="true">
+            <span className="console__brand">DuoMix</span>
+            <span className="console__device">{ready ? mixer.deviceLabel : 'sem receptor'}</span>
+          </div>
+          <div className="console__grid">
+            {Array.from({ length: CHANNELS }, (_, i) => (
+              <ChannelStrip
+                key={i}
+                index={i}
+                cfg={channels[i]}
+                meter={mixer.meters.ch[i]}
+                floorDb={mixer.floors[i]}
+                gateClosed={mixer.gates[i]}
+                ready={ready}
+                inactive={i >= mixer.channelCount}
+                calibrating={mixer.calibrating}
+                onChange={(patch) => setChannel(i, patch)}
               />
-            </section>
+            ))}
+            <MasterStrip
+              master={master}
+              level={mixer.meters.master}
+              ready={ready}
+              calibrating={mixer.calibrating}
+              autoMessage={autoMessage}
+              onChange={setMaster}
+              onAuto={handleAuto}
+            />
           </div>
         </div>
       </main>
 
       <footer className="app__footer">
-        Rubro · criado por <strong>Arthur Macaúbas</strong> · © {new Date().getFullYear()}
+        DuoMix · criado por <strong>Arthur Macaúbas</strong> · © {new Date().getFullYear()}
       </footer>
 
       <p className="sr-only" aria-live="assertive">
-        {ready ? (mic.muted ? 'Microfone no mudo' : 'Microfone ligado') : ''}
+        {announce}
       </p>
 
       {showSettings && (
         <SettingsPanel
-          mic={mic}
+          mixer={mixer}
           onClose={() => setShowSettings(false)}
           onRestartSetup={() => {
             setShowSettings(false);
@@ -160,7 +144,7 @@ export default function App() {
           }}
         />
       )}
-      {showOnboarding && <Onboarding mic={mic} onDone={finishOnboarding} />}
+      {showOnboarding && <Onboarding mixer={mixer} onDone={finishOnboarding} />}
     </div>
   );
 }

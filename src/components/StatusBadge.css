@@ -4,9 +4,9 @@
   gap: 10px;
   max-width: 100%;
   padding: 8px 16px;
-  border: 1px solid var(--mic-steel);
+  border: 1px solid var(--edge);
   border-radius: 999px;
-  background: var(--mic-graphite);
+  background: var(--panel);
   font-weight: 600;
 }
 
@@ -23,18 +23,18 @@
 }
 
 .status--ok .status__dot {
-  background: var(--ok-green);
-  box-shadow: 0 0 10px var(--ok-green);
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
 }
 
 .status--wait .status__dot {
-  background: var(--warn-amber);
+  background: var(--warn);
   animation: status-blink 1.4s ease-in-out infinite;
 }
 
 .status--bad .status__dot {
-  background: var(--mic-red-glow);
-  box-shadow: 0 0 10px var(--mic-red-glow);
+  background: var(--danger);
+  box-shadow: 0 0 10px var(--danger);
 }
 
 @keyframes status-blink {

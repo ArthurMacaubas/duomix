@@ -1,0 +1,85 @@
+.knob {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  flex: none;
+}
+
+.knob__dots {
+  position: absolute;
+  inset: 0;
+}
+
+/* LEDs em volta do botão, como os pontinhos ciano do receptor. */
+.knob__dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%;
+  background: #1a2130;
+  transition: background var(--dur-fast), box-shadow var(--dur-fast);
+}
+
+.knob__dot.is-lit {
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+}
+
+.knob__dial {
+  position: absolute;
+  inset: 18px;
+  border-radius: 50%;
+  /* Serrilhado da borda do seletor. */
+  background:
+    repeating-conic-gradient(from 0deg, #3c4556 0deg 4deg, #151a22 4deg 8deg);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.6), 0 0 0 1px #000;
+  cursor: grab;
+  touch-action: none;
+}
+
+.knob__dial:active {
+  cursor: grabbing;
+}
+
+.knob__dial:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+
+.knob__dial.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.knob__cap {
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.12), transparent 55%),
+    linear-gradient(180deg, #11151b, #050608);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06), inset 0 -4px 10px rgb(0 0 0 / 0.6);
+  transition: transform 60ms linear;
+}
+
+/* Marcador amarelo que mostra a posição. */
+.knob__mark {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 6px;
+  height: 22px;
+  margin-left: -3px;
+  border-radius: 3px;
+  background: var(--yellow);
+  box-shadow: 0 0 8px rgb(245 217 10 / 0.5);
+}
+
+@media (max-width: 420px) {
+  .knob {
+    width: 144px;
+    height: 144px;
+  }
+}

@@ -1,34 +1,20 @@
 .header {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 20px 24px;
-  overflow: hidden;
-  border-bottom: 1px solid var(--mic-steel);
-}
-
-/* Faixa diagonal vermelha inspirada na caixa do produto. */
-.header__stripe {
-  position: absolute;
-  inset: 0 0 auto auto;
-  width: 320px;
-  height: 100%;
-  background: repeating-linear-gradient(-60deg, transparent 0 18px, rgb(225 6 0 / 0.2) 18px 22px);
-  mask-image: linear-gradient(to left, #000 30%, transparent);
-  pointer-events: none;
+  border-bottom: 1px solid var(--edge);
 }
 
 .header__brand {
-  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
 }
 
 .header__brand img {
-  filter: drop-shadow(0 6px 18px rgb(225 6 0 / 0.35));
+  filter: drop-shadow(0 6px 18px rgb(0 0 0 / 0.5));
 }
 
 .header__title {
@@ -36,9 +22,12 @@
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 32px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
   line-height: 1;
+}
+
+.header__title span {
+  color: var(--yellow);
 }
 
 .header__tagline {
@@ -48,7 +37,6 @@
 }
 
 .header__actions {
-  position: relative;
   display: flex;
   gap: 8px;
 }
@@ -58,22 +46,22 @@
   place-items: center;
   width: 44px;
   height: 44px;
-  border: 1px solid var(--mic-steel-hi);
+  border: 1px solid var(--line-control);
   border-radius: 12px;
-  background: var(--mic-graphite);
-  color: var(--text-lo);
+  background: var(--panel);
+  color: var(--silver);
   transition: color var(--dur), border-color var(--dur), background var(--dur);
 }
 
 .icon-btn:hover {
   color: var(--text-hi);
-  border-color: var(--line-control);
-  background: var(--mic-graphite-2);
+  border-color: var(--yellow);
+  background: var(--panel-2);
 }
 
 @media (max-width: 420px) {
   .header {
-    padding: 16px;
+    padding: 16px 12px;
   }
 
   .header__title {

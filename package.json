@@ -1,8 +1,8 @@
 {
-  "name": "rubro",
+  "name": "duomix",
   "private": true,
   "version": "0.1.0",
-  "description": "Rubro: o painel do seu microfone. Sua voz, no ponto.",
+  "description": "DuoMix: mesa de som para dois microfones sem fio.",
   "author": "Arthur Macaúbas",
   "type": "module",
   "scripts": {

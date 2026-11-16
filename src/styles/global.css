@@ -13,8 +13,8 @@ body,
 
 body {
   background:
-    radial-gradient(1200px 600px at 50% -10%, #1c1c22 0%, transparent 60%),
-    var(--mic-black);
+    radial-gradient(1200px 600px at 50% -10%, #1a2130 0%, transparent 60%),
+    var(--bg);
   color: var(--text-hi);
   font-family: var(--font-body);
   font-size: 16px;
@@ -34,7 +34,7 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid var(--mic-red-glow);
+  outline: 2px solid var(--yellow);
   outline-offset: 3px;
   border-radius: 6px;
 }
@@ -58,5 +58,48 @@ button {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Botão principal amarelo, como os botões do kit. */
+.btn-yellow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  align-self: stretch;
+  min-height: 54px;
+  padding: 12px 20px;
+  border: 1px solid var(--yellow-deep);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, var(--yellow-hi), var(--yellow));
+  box-shadow: 0 6px 18px rgb(245 217 10 / 0.25), inset 0 1px 0 rgb(255 255 255 / 0.5);
+  color: var(--on-yellow);
+  font-size: 18px;
+  font-weight: 700;
+  transition: transform var(--dur-fast), filter var(--dur);
+}
+
+.btn-yellow:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.btn-yellow:active:not(:disabled) {
+  transform: translateY(2px);
+}
+
+.btn-yellow:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btn-yellow.is-busy {
+  opacity: 1;
+  animation: btn-yellow-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes btn-yellow-pulse {
+  50% {
+    box-shadow: 0 0 30px rgb(245 217 10 / 0.6);
   }
 }

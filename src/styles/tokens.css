@@ -1,22 +1,35 @@
-/* Design tokens: cores tiradas do microfone (corpo preto, detalhes vermelhos) e da caixa. */
+/*
+ * Design tokens: cores tiradas do kit de microfones sem fio duplo.
+ * Corpo azul-ardósia, faces pretas, logo prata, botões amarelos,
+ * LEDs ciano e o friso creme do estojo de carga.
+ * Contraste conferido: textos >= 4.5:1, bordas de controles >= 3:1.
+ */
 :root {
-  --mic-black: #0e0e10;
-  --mic-graphite: #1a1a1e;
-  --mic-graphite-2: #222228;
-  --mic-steel: #2a2a30;
-  --mic-steel-hi: #3a3a42;
-  --mic-red: #e10600;
-  --mic-red-glow: #ff2d20;
-  --mic-red-deep: #8a0a05;
-  --mic-red-text: #ff4d40; /* vermelho para texto pequeno, contraste AA sobre preto */
-  --line-control: #6a6a74; /* borda de controles: 3:1 sobre o fundo (WCAG 1.4.11) */
+  --bg: #0d1016;
+  --panel: #1d232d; /* corpo azul-ardósia */
+  --panel-2: #262e3a;
+  --panel-hi: #303948;
+  --face: #0a0c10; /* faces pretas dos transmissores */
+  --edge: #343d4c; /* bordas decorativas */
+  --line-control: #75808f; /* bordas de controles: >= 3:1 */
 
-  --text-hi: #f5f5f7;
-  --text-lo: #9a9aa3;
-  --ok-green: #2bd46a;
-  --warn-amber: #ffb020;
+  --silver: #c9ced6; /* logo prata */
+  --text-hi: #eef1f5;
+  --text-lo: #9aa3b0;
 
-  --font-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --yellow: #f5d90a; /* botões e conector amarelos */
+  --yellow-hi: #ffe94d;
+  --yellow-deep: #c4ac00;
+  --on-yellow: #121212;
+
+  --cyan: #2db8ff; /* LEDs */
+  --cyan-soft: rgb(45 184 255 / 0.35);
+  --cream: #e8dcb8; /* friso do estojo */
+
+  --danger: #ff5a4e; /* estouro / clip */
+  --warn: #ffb020;
+
+  --font-display: 'Saira Semi Condensed', 'Arial Narrow', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --radius-sm: 10px;
@@ -24,7 +37,8 @@
   --radius-lg: 24px;
 
   --shadow-inset: inset 0 2px 6px rgb(0 0 0 / 0.6), inset 0 -1px 0 rgb(255 255 255 / 0.04);
-  --shadow-raised: 0 10px 30px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  --shadow-raised: 0 14px 34px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  --metal: linear-gradient(180deg, #2a3240, #1b212a);
 
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --dur-fast: 100ms;

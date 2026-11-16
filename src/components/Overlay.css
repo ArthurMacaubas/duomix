@@ -26,9 +26,9 @@
   max-height: calc(100vh - 32px);
   overflow: auto;
   padding: 24px;
-  border: 1px solid var(--mic-steel);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-lg);
-  background: var(--mic-graphite);
+  background: var(--panel);
   box-shadow: 0 30px 80px rgb(0 0 0 / 0.6);
 }
 
@@ -72,7 +72,7 @@
 
 .advanced {
   margin-top: 20px;
-  border-top: 1px solid var(--mic-steel);
+  border-top: 1px solid var(--edge);
   padding-top: 14px;
 }
 
@@ -120,7 +120,7 @@
   position: absolute;
   inset: 0 0 auto;
   height: 8px;
-  background: repeating-linear-gradient(-60deg, var(--mic-red) 0 14px, var(--mic-red-deep) 14px 22px);
+  background: repeating-linear-gradient(-60deg, var(--yellow) 0 14px, var(--yellow-deep) 14px 22px);
 }
 
 .onboarding__dots {
@@ -136,14 +136,14 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--mic-steel);
+  background: var(--edge);
   transition: background var(--dur), width var(--dur);
 }
 
 .onboarding__dots li.is-done {
   width: 26px;
   border-radius: 999px;
-  background: var(--mic-red);
+  background: var(--yellow);
 }
 
 .onboarding__step {
@@ -153,7 +153,7 @@
   gap: 14px;
 }
 
-.onboarding__step .btn-primary {
+.onboarding__step .btn-yellow {
   margin-top: 6px;
 }
 
@@ -162,7 +162,7 @@
 }
 
 .onboarding__logo {
-  filter: drop-shadow(0 10px 30px rgb(225 6 0 / 0.35));
+  filter: drop-shadow(0 10px 30px rgb(245 217 10 / 0.25));
 }
 
 .onboarding__title {
@@ -204,7 +204,7 @@
   height: 64px;
   border-radius: 19px;
   background: linear-gradient(180deg, #2e2e35, #111114);
-  border: 2px solid var(--mic-red);
+  border: 2px solid var(--yellow);
 }
 
 .plug__cable {
@@ -214,7 +214,7 @@
   width: 104px;
   height: 4px;
   border-radius: 2px;
-  background: var(--mic-steel-hi);
+  background: var(--line-control);
   animation: plug-blink 1.2s ease-in-out infinite;
 }
 
@@ -225,20 +225,52 @@
   width: 30px;
   height: 20px;
   border-radius: 3px;
-  background: var(--mic-steel-hi);
+  background: var(--line-control);
   animation: plug-blink 1.2s ease-in-out infinite;
 }
 
 .plug.is-ready .plug__cable,
 .plug.is-ready .plug__usb {
   animation: none;
-  background: var(--ok-green);
-  box-shadow: 0 0 12px var(--ok-green);
+  background: var(--cyan);
+  box-shadow: 0 0 12px var(--cyan);
 }
 
 @keyframes plug-blink {
   50% {
-    background: var(--mic-red-glow);
-    box-shadow: 0 0 12px var(--mic-red-glow);
+    background: var(--yellow);
+    box-shadow: 0 0 12px var(--yellow);
   }
+}
+
+.advanced__pair {
+  display: contents;
+}
+
+/* Medidores dos dois microfones no guia inicial. */
+.ob-meters {
+  display: grid;
+  gap: 14px;
+  align-self: stretch;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: var(--face);
+  text-align: left;
+}
+
+.ob-meters__row {
+  display: grid;
+  gap: 6px;
+}
+
+.ob-meters__name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.ob-meters__status {
+  min-height: 1.3em;
+  color: var(--text-lo);
+  font-size: 14px;
 }

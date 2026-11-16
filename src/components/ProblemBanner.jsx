@@ -3,7 +3,7 @@ import './ProblemBanner.css';
 /** Todo problema tem 3 partes: o que houve, o que fazer e um botão que faz por você. */
 const PROBLEMS = {
   denied: {
-    title: 'O navegador está bloqueando seu microfone',
+    title: 'O navegador está bloqueando o receptor',
     steps: [
       'Clique no cadeado 🔒 ao lado do endereço do site.',
       'Em "Microfone", escolha "Permitir".',
@@ -12,28 +12,28 @@ const PROBLEMS = {
     action: 'Tentar de novo',
   },
   notfound: {
-    title: 'Não achei seu microfone',
-    steps: ['Encaixe o cabo USB do microfone no computador.', 'Esta tela volta sozinha assim que ele for encontrado.'],
+    title: 'Não achei o receptor',
+    steps: ['Encaixe o receptor na porta USB-C do computador.', 'Esta tela volta sozinha assim que ele for encontrado.'],
     action: 'Procurar de novo',
   },
   busy: {
-    title: 'Outro programa está usando seu microfone',
+    title: 'Outro programa está usando o receptor',
     steps: ['Feche programas como Discord, Zoom ou OBS.', 'Depois toque em "Tentar de novo".'],
     action: 'Tentar de novo',
   },
   disconnected: {
-    title: 'Seu microfone foi desconectado',
-    steps: ['Encaixe o cabo USB de novo.', 'A tela volta sozinha quando ele reconectar.'],
+    title: 'O receptor foi desconectado',
+    steps: ['Encaixe o receptor de novo.', 'A tela volta sozinha quando ele reconectar.'],
     action: 'Reconectar',
   },
   unsupported: {
-    title: 'Este navegador não consegue usar o microfone',
+    title: 'Este navegador não consegue usar o receptor',
     steps: ['Abra o app no Google Chrome ou no Microsoft Edge atualizado.'],
     action: null,
   },
   error: {
-    title: 'Algo deu errado com o microfone',
-    steps: ['Tire e coloque o cabo USB de novo.', 'Depois toque em "Tentar de novo".'],
+    title: 'Algo deu errado com o receptor',
+    steps: ['Tire e coloque o receptor de novo.', 'Depois toque em "Tentar de novo".'],
     action: 'Tentar de novo',
   },
 };

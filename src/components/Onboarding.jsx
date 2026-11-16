@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
-import MicGrille from './MicGrille.jsx';
 import ProblemBanner from './ProblemBanner.jsx';
+import SegmentMeter from './SegmentMeter.jsx';
 import './Overlay.css';
 
 const STEPS = 3;
 
-/** Primeiro uso em 3 passos: boas-vindas, conectar e testar a voz. */
-export default function Onboarding({ mic, onDone }) {
+/** Primeiro uso em 3 passos: boas-vindas, conectar o receptor e testar os dois microfones. */
+export default function Onboarding({ mixer, onDone }) {
   const [step, setStep] = useState(0);
-  const [result, setResult] = useState(null); // null | 'ok' | 'silent'
-  const ready = mic.status === 'ready';
+  const [results, setResults] = useState(null);
+  const ready = mixer.status === 'ready';
+  const ok = results?.some((r) => typeof r === 'number');
 
-  // Passo 2 avança sozinho quando o microfone aparece.
+  // Passo 2 avança sozinho quando o receptor aparece.
   useEffect(() => {
     if (step !== 1 || !ready) return;
     const t = setTimeout(() => setStep(2), 1000);
@@ -19,9 +20,17 @@ export default function Onboarding({ mic, onDone }) {
   }, [step, ready]);
 
   const runTest = async () => {
-    setResult(null);
-    const r = await mic.autoAdjust();
-    setResult(r.ok ? 'ok' : r.reason === 'silent' ? 'silent' : null);
+    setResults(null);
+    const r = await mixer.autoAdjust();
+    setResults(r.results);
+  };
+
+  const statusOf = (i) => {
+    if (!results) return '';
+    const r = results[i];
+    if (typeof r === 'number') return 'ajustado ✅';
+    if (r === 'mono') return 'misturado no canal 1';
+    return 'não ouvi';
   };
 
   return (
@@ -36,12 +45,14 @@ export default function Onboarding({ mic, onDone }) {
 
         {step === 0 && (
           <div className="onboarding__step">
-            <img src="/mic.svg" alt="" width="88" height="88" className="onboarding__logo" />
+            <img src="/logo.svg" alt="" width="88" height="88" className="onboarding__logo" />
             <h2 id="ob-title" className="onboarding__title">
-              Bem-vindo ao Rubro
+              Bem-vindo ao DuoMix
             </h2>
-            <p className="onboarding__text">Vamos deixar sua voz perfeita em 1 minuto.</p>
-            <button type="button" className="btn-primary" onClick={() => setStep(1)}>
+            <p className="onboarding__text">
+              Uma mesa de som para seus dois microfones sem fio. Em 1 minuto deixamos os dois no ponto.
+            </p>
+            <button type="button" className="btn-yellow" onClick={() => setStep(1)}>
               Começar
             </button>
           </div>
@@ -55,45 +66,55 @@ export default function Onboarding({ mic, onDone }) {
               <span className="plug__usb" />
             </div>
             <h2 id="ob-title" className="onboarding__title">
-              {ready ? 'Achei seu microfone! ✅' : 'Conecte seu microfone'}
+              {ready ? 'Achei seu receptor! ✅' : 'Conecte o receptor'}
             </h2>
             <p className="onboarding__text">
               {ready
-                ? mic.deviceLabel
-                : 'Encaixe o cabo USB no computador. Se aparecer um aviso pedindo o microfone, clique em "Permitir".'}
+                ? mixer.deviceLabel
+                : 'Encaixe o receptor na porta USB-C do computador e ligue os dois microfones. Se aparecer um aviso, clique em "Permitir".'}
             </p>
-            {!ready && <ProblemBanner status={mic.status} onRetry={mic.retry} />}
+            {!ready && <ProblemBanner status={mixer.status} onRetry={mixer.retry} />}
           </div>
         )}
 
         {step === 2 && (
           <div className="onboarding__step">
-            <MicGrille bands={mic.bands} compact />
             <h2 id="ob-title" className="onboarding__title">
-              {result === 'ok' ? 'Pronto! Seu microfone está no ponto ✅' : 'Diga: "Olá, testando!"'}
+              {ok ? 'Pronto! A mesa está no ponto ✅' : 'Agora cada um fala no seu microfone'}
             </h2>
+            <div className="ob-meters">
+              {mixer.channels.map((c, i) => (
+                <div key={i} className="ob-meters__row">
+                  <span className="ob-meters__name">
+                    TX{i + 1} · {c.name}
+                  </span>
+                  <SegmentMeter level={mixer.meters.ch[i].level} segments={20} horizontal />
+                  <span className="ob-meters__status">{statusOf(i)}</span>
+                </div>
+              ))}
+            </div>
             <p className="onboarding__text">
-              {mic.calibrating
-                ? 'Continue falando normalmente… estou ajustando.'
-                : result === 'silent'
-                  ? 'Não consegui te ouvir. Chegue mais perto do microfone e tente de novo.'
-                  : result === 'ok'
-                    ? 'Ajustei o volume da sua voz. Você pode mudar quando quiser.'
-                    : 'Toque no botão e fale por 5 segundos. Eu ajusto o volume para você.'}
+              {mixer.calibrating
+                ? 'Continuem falando normalmente… estou ajustando.'
+                : ok
+                  ? 'Ajustei o volume de cada microfone. Vocês podem mudar quando quiserem.'
+                  : results
+                    ? 'Não consegui ouvir. Cheguem mais perto dos microfones e tentem de novo.'
+                    : 'Toque no botão e falem por 5 segundos, como numa conversa. Eu acerto os volumes.'}
             </p>
-            {result === 'ok' ? (
-              <button type="button" className="btn-primary" onClick={onDone}>
-                Concluir
+            {ok ? (
+              <button type="button" className="btn-yellow" onClick={onDone}>
+                Abrir a mesa
               </button>
             ) : (
-              <button type="button" className="btn-primary" onClick={runTest} disabled={mic.calibrating || !ready}>
-                {mic.calibrating ? 'Ouvindo…' : result === 'silent' ? 'Tentar de novo' : 'Começar teste'}
+              <button type="button" className="btn-yellow" onClick={runTest} disabled={mixer.calibrating || !ready}>
+                {mixer.calibrating ? 'Ouvindo…' : results ? 'Tentar de novo' : 'Começar teste'}
               </button>
             )}
           </div>
         )}
 
-        {!(step === 2 && result === 'ok') && (
+        {!(step === 2 && ok) && (
           <button type="button" className="onboarding__skip" onClick={onDone}>
             Pular
           </button>

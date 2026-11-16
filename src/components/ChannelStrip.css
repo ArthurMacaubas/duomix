@@ -1,0 +1,271 @@
+.strip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px 16px 20px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+  background: var(--metal);
+  box-shadow: var(--shadow-raised);
+}
+
+.strip.is-disabled .strip__body,
+.strip.is-disabled .strip__readout {
+  opacity: 0.5;
+}
+
+.strip__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Selo redondo como a face preta do transmissor, com o LED ciano. */
+.strip__badge {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #1c222b, var(--face) 70%);
+  box-shadow: 0 0 0 3px #3a4352, 0 0 0 4px #000, 0 6px 14px rgb(0 0 0 / 0.5);
+  color: var(--silver);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.strip__badge-led {
+  position: absolute;
+  top: 6px;
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  background: #1f3a4c;
+  transition: background var(--dur-fast), box-shadow var(--dur-fast);
+}
+
+.strip__badge.is-live .strip__badge-led {
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+}
+
+.strip__name {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: var(--face);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.strip__name:focus-visible {
+  border-color: var(--yellow);
+}
+
+.strip__msg {
+  min-height: 1.6em;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.strip__msg--idle,
+.strip__msg--muted {
+  color: var(--text-lo);
+}
+
+.strip__msg--low {
+  color: var(--text-hi);
+}
+
+.strip__msg--ok {
+  color: var(--cyan);
+}
+
+.strip__msg--warn {
+  color: var(--danger);
+}
+
+.strip__body {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  height: 260px;
+  padding: 14px 10px;
+  border-radius: var(--radius-md);
+  background: rgb(0 0 0 / 0.25);
+  box-shadow: var(--shadow-inset);
+}
+
+.strip__readout {
+  margin: -4px 0 0;
+  color: var(--text-lo);
+  font-size: 14px;
+  text-align: center;
+}
+
+.strip__readout strong {
+  color: var(--text-hi);
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Mudo: aceso em amarelo quando está mudo (como o botão amarelo do transmissor). */
+.strip__mute {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, #2c3442, #1c222c);
+  color: var(--text-hi);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: transform var(--dur-fast), background var(--dur), color var(--dur), box-shadow var(--dur);
+}
+
+.strip__mute:active:not(:disabled) {
+  transform: translateY(2px);
+}
+
+.strip__mute.is-muted {
+  border-color: var(--yellow-deep);
+  background: linear-gradient(180deg, var(--yellow-hi), var(--yellow));
+  color: var(--on-yellow);
+  box-shadow: 0 0 18px rgb(245 217 10 / 0.35);
+}
+
+.strip__mute:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.strip__mute kbd {
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.7;
+}
+
+.strip__noise {
+  display: grid;
+  gap: 8px;
+}
+
+.strip__label {
+  color: var(--text-lo);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.strip__ambient {
+  min-height: 1.4em;
+  color: var(--text-lo);
+  font-size: 13px;
+}
+
+.mini-seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: var(--face);
+}
+
+.mini-seg__opt {
+  min-height: 40px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-lo);
+  font-weight: 600;
+  transition: background var(--dur), color var(--dur);
+}
+
+.mini-seg__opt:hover:not(:disabled):not(.is-on) {
+  color: var(--text-hi);
+  background: var(--panel-2);
+}
+
+.mini-seg__opt.is-on {
+  background: var(--cyan);
+  color: #04121b;
+}
+
+.mini-seg__opt:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.strip__mono {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-sm);
+  background: rgb(255 176 32 / 0.08);
+  color: var(--text-hi);
+  font-size: 13px;
+}
+
+@media (max-width: 420px) {
+  .strip {
+    padding: 14px 10px 16px;
+  }
+
+  .strip__head {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .strip__badge {
+    width: 44px;
+    height: 44px;
+    font-size: 13px;
+  }
+
+  .strip__name {
+    width: 100%;
+    font-size: 16px;
+    padding: 0 8px;
+    text-align: center;
+  }
+
+  .strip__body {
+    height: 220px;
+    gap: 8px;
+    padding: 12px 4px;
+  }
+
+  .strip__mute kbd {
+    display: none;
+  }
+}

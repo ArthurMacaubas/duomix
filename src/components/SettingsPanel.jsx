@@ -1,10 +1,14 @@
 import { useEffect, useRef } from 'react';
+import { sliderToDb } from '../hooks/useMixer.js';
 import { CloseIcon } from './Icons.jsx';
 import './Overlay.css';
 
+const db = (v) => `${sliderToDb(v) > 0 ? '+' : ''}${sliderToDb(v).toFixed(1)} dB`;
+
 /** Ajustes: só o essencial à vista; o técnico fica escondido em "Opções avançadas". */
-export default function SettingsPanel({ mic, onClose, onRestartSetup }) {
+export default function SettingsPanel({ mixer, onClose, onRestartSetup }) {
   const closeRef = useRef(null);
+  const ready = mixer.status === 'ready';
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -26,15 +30,15 @@ export default function SettingsPanel({ mic, onClose, onRestartSetup }) {
         </div>
 
         <label className="field">
-          <span className="field__label">Qual microfone usar</span>
+          <span className="field__label">Qual receptor usar</span>
           <select
             className="field__select"
-            value={mic.deviceId}
-            onChange={(e) => mic.chooseDevice(e.target.value)}
-            disabled={mic.devices.length === 0}
+            value={mixer.deviceId}
+            onChange={(e) => mixer.chooseDevice(e.target.value)}
+            disabled={mixer.devices.length === 0}
           >
-            {mic.devices.length === 0 && <option value="">Nenhum microfone encontrado</option>}
-            {mic.devices.map((d) => (
+            {mixer.devices.length === 0 && <option value="">Nenhum receptor encontrado</option>}
+            {mixer.devices.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.label}
               </option>
@@ -45,21 +49,32 @@ export default function SettingsPanel({ mic, onClose, onRestartSetup }) {
         <details className="advanced">
           <summary>Opções avançadas</summary>
           <dl className="advanced__list">
-            <dt>Microfone em uso</dt>
-            <dd>{mic.deviceLabel || '—'}</dd>
+            <dt>Receptor em uso</dt>
+            <dd>{mixer.deviceLabel || '—'}</dd>
+            <dt>Modo do receptor</dt>
+            <dd>{ready ? (mixer.channelCount === 2 ? 'Estéreo (2 canais separados)' : 'Mono (microfones juntos)') : '—'}</dd>
             <dt>Taxa de amostragem</dt>
-            <dd>{mic.sampleRate ? `${(mic.sampleRate / 1000).toFixed(1)} kHz` : '—'}</dd>
-            <dt>Volume da voz (ganho no app)</dt>
-            <dd>{`${(((mic.volume - 50) / 50) * 12).toFixed(1)} dB`}</dd>
-            <dt>Barulho do ambiente</dt>
-            <dd>{mic.status === 'ready' ? `${mic.noiseFloorDb} dB` : '—'}</dd>
-            <dt>Atalho de mudo</dt>
-            <dd>Ctrl + M (com o app aberto)</dd>
+            <dd>{mixer.sampleRate ? `${(mixer.sampleRate / 1000).toFixed(1)} kHz` : '—'}</dd>
+            {mixer.channels.map((c, i) => (
+              <div key={i} className="advanced__pair">
+                <dt>
+                  TX{i + 1} · {c.name}
+                </dt>
+                <dd>
+                  {db(c.volume)}
+                  {ready ? ` · barulho ${mixer.floors[i]} dB` : ''}
+                </dd>
+              </div>
+            ))}
+            <dt>Master</dt>
+            <dd>{db(mixer.master.volume)}</dd>
+            <dt>Atalhos</dt>
+            <dd>Ctrl + M mudo geral · Alt + 1 / Alt + 2 mudo de cada microfone</dd>
           </dl>
           <p className="advanced__note">
-            Nesta versão web, o volume e o redutor de ruído funcionam dentro do app (medidor e fone), não no som
-            que outros programas recebem. O controle direto do hardware (ganho físico, LED e
-            botão de mudo do microfone) chega na versão para computador.
+            Nesta versão web, a mesa funciona dentro do app (medidores e fone), não no som que outros programas recebem.
+            Para mandar a mistura para o Discord, OBS ou Zoom, o app precisa virar programa de computador com um
+            microfone virtual.
           </p>
         </details>
 

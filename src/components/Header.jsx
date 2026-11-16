@@ -4,12 +4,13 @@ import './Header.css';
 export default function Header({ onSettings, onHelp }) {
   return (
     <header className="header">
-      <div className="header__stripe" aria-hidden="true" />
       <div className="header__brand">
-        <img src="/mic.svg" alt="" width="44" height="44" />
+        <img src="/logo.svg" alt="" width="46" height="46" />
         <div>
-          <h1 className="header__title">Rubro</h1>
-          <p className="header__tagline">Sua voz, no ponto.</p>
+          <h1 className="header__title">
+            Duo<span>Mix</span>
+          </h1>
+          <p className="header__tagline">Dois microfones, uma mesa.</p>
         </div>
       </div>
       <div className="header__actions">

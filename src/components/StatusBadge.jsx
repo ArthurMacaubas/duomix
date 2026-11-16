@@ -1,25 +1,27 @@
 import './StatusBadge.css';
 
 const TEXT = {
-  idle: ['wait', 'Procurando seu microfone…'],
-  requesting: ['wait', 'Pedindo permissão para usar o microfone…'],
-  ready: ['ok', 'Microfone conectado'],
-  denied: ['bad', 'Sem permissão para usar o microfone'],
-  notfound: ['bad', 'Nenhum microfone encontrado'],
-  busy: ['bad', 'Microfone ocupado por outro programa'],
-  disconnected: ['bad', 'Microfone desconectado'],
+  idle: ['wait', 'Procurando o receptor…'],
+  requesting: ['wait', 'Pedindo permissão para usar o receptor…'],
+  ready: ['ok', 'Receptor conectado'],
+  denied: ['bad', 'Sem permissão para usar o receptor'],
+  notfound: ['bad', 'Nenhum receptor encontrado'],
+  busy: ['bad', 'Receptor ocupado por outro programa'],
+  disconnected: ['bad', 'Receptor desconectado'],
   unsupported: ['bad', 'Este navegador não consegue usar o microfone'],
-  error: ['bad', 'Algo deu errado com o microfone'],
+  error: ['bad', 'Algo deu errado com o receptor'],
 };
 
-export default function StatusBadge({ status, deviceLabel }) {
+export default function StatusBadge({ status, channelCount }) {
   const [tone, text] = TEXT[status] ?? TEXT.error;
   return (
     <div className={`status status--${tone}`} role="status">
       <span className="status__dot" aria-hidden="true" />
       <span>
         {text}
-        {status === 'ready' && deviceLabel && <span className="status__device"> · {deviceLabel}</span>}
+        {status === 'ready' && (
+          <span className="status__device"> · {channelCount === 2 ? '2 canais (estéreo)' : '1 canal (mono)'}</span>
+        )}
       </span>
     </div>
   );

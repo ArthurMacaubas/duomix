@@ -1,0 +1,73 @@
+.fader {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  height: 100%;
+}
+
+.fader__scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px 0;
+  color: var(--text-lo);
+  font-family: var(--font-display);
+  font-size: 11px;
+  text-align: right;
+}
+
+/* Slider nativo virado na vertical: o valor alto fica em cima. */
+.fader__input {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 44px;
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.fader__input::-webkit-slider-runnable-track {
+  width: 8px;
+  border: 1px solid var(--line-control);
+  border-radius: 999px;
+  background: var(--face);
+  box-shadow: var(--shadow-inset);
+}
+
+.fader__input::-moz-range-track {
+  width: 8px;
+  border: 1px solid var(--line-control);
+  border-radius: 999px;
+  background: var(--face);
+}
+
+/* Botão do fader: tampa metálica com friso amarelo, como os botões do kit. */
+.fader__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 40px;
+  height: 22px;
+  margin-left: -17px;
+  border: 1px solid #000;
+  border-radius: 5px;
+  background:
+    linear-gradient(90deg, transparent 0 calc(50% - 1px), var(--yellow) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+    linear-gradient(180deg, #4a5466, #232a35 55%, #3a4352);
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.15);
+}
+
+.fader__input::-moz-range-thumb {
+  width: 38px;
+  height: 20px;
+  border: 1px solid #000;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #4a5466, #232a35 55%, #3a4352);
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.6), inset 0 0 0 1px var(--yellow);
+}
+
+.fader__input:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
