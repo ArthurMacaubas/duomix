@@ -23,6 +23,28 @@ botões amarelos, LEDs ciano e o friso creme do estojo.
 - Guia de primeiro uso em 3 passos e avisos com o passo a passo para cada problema.
 - Atalhos: `Ctrl + M` mudo geral, `Alt + 1` / `Alt + 2` mudo de cada microfone.
 
+## Modo Auditório (PC → mesa de som)
+
+Para usar os microfones num auditório: o receptor vai no PC, o DuoMix trata o som e a saída de fone do PC
+vai por um cabo P2 até a mesa de som do auditório.
+
+```
+Lark M2 (TX1, TX2) → receptor USB-C → PC (DuoMix) → saída P2 → cabo P2 → mesa do auditório → caixas
+```
+
+Ligue o botão **Modo Auditório** no topo. Ele:
+
+- manda a mistura para a saída do PC, subindo devagar (sem estalo nas caixas);
+- deixa escolher **para onde vai o som** (fone/P2, HDMI...);
+- tem um **tom de teste de 1 kHz** para o técnico acertar o volume na mesa (para sozinho em 1 minuto);
+- mostra o **atraso estimado** dentro do PC (o "Isolar voz" acrescenta uns 16 ms);
+- mantém a **tela sempre ligada** para o PC não dormir no meio do evento;
+- traz um **checklist da ligação**.
+
+Dicas: use uma entrada de **linha/AUX** da mesa (não a de microfone), com o **phantom power desligado**;
+deixe o Windows em **Não incomodar** para notificações não saírem nas caixas; se aparecer zumbido com o
+notebook na tomada, use um **isolador de ruído P2**.
+
 ## Como rodar
 
 Precisa do [Node.js](https://nodejs.org) 20 ou mais novo.
@@ -50,6 +72,6 @@ src/
 
 ## Limitação atual
 
-Na versão web, a mesa funciona dentro do app (medidores e fone), não no som que outros programas recebem.
+Na versão web, a mesa sai pela placa de som do PC (fone, P2 ou Modo Auditório), mas não vira um microfone que outros programas (Discord, OBS, Zoom) possam escolher.
 Para mandar a mistura para o Discord, OBS ou Zoom, o app precisa virar programa de computador (Electron ou Tauri)
 com um microfone virtual.

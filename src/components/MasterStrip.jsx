@@ -12,6 +12,7 @@ export default function MasterStrip({
   limiting,
   mutedTalking,
   canAntiBleed,
+  auditorium,
   ready,
   calibrating,
   autoMessage,
@@ -21,6 +22,7 @@ export default function MasterStrip({
   const disabled = !ready;
   return (
     <section className="master" aria-labelledby="master-title">
+      <div className="master__inner">
       <header className="master__head">
         <h2 id="master-title" className="master__title">
           Master
@@ -82,10 +84,14 @@ export default function MasterStrip({
         <ToggleRow
           icon={<HeadphonesIcon />}
           label="Me ouvir no fone"
-          help="Você escuta a mistura dos dois microfones no fone, já com volume e redutor de ruído. Use com fone para não dar microfonia."
-          checked={master.monitor}
+          help={
+            auditorium
+              ? 'No Modo Auditório o som já está saindo pelo PC (para a mesa de som).'
+              : 'Você escuta a mistura dos dois microfones no fone, já com volume e redutor de ruído. Use com fone para não dar microfonia.'
+          }
+          checked={auditorium || master.monitor}
           onChange={(monitor) => onChange({ monitor })}
-          disabled={disabled}
+          disabled={disabled || auditorium}
         />
       </div>
 
@@ -101,6 +107,7 @@ export default function MasterStrip({
       <p className="master__msg" role="status">
         {autoMessage || 'Cada pessoa fala no seu microfone por 5 segundos e eu acerto os volumes.'}
       </p>
+      </div>
     </section>
   );
 }

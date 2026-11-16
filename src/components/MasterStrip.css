@@ -1,8 +1,5 @@
 .master {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
+  container: master / inline-size;
   min-width: 0;
   padding: 18px 20px 22px;
   border: 1px solid var(--edge);
@@ -128,4 +125,57 @@
 
 .master__toggle .toggle__icon {
   color: var(--cyan);
+}
+
+.master__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Master largo (tablet, ou abaixo dos canais): botão giratório à esquerda, ações à direita. */
+@container master (min-width: 560px) {
+  .master__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    grid-auto-flow: row dense;
+    column-gap: 28px;
+    row-gap: 14px;
+    align-items: start;
+  }
+
+  .master__head {
+    grid-column: 1 / -1;
+  }
+
+  .master__inner > .knob,
+  .master__readout,
+  .master__inner > .segmeter,
+  .master__limit {
+    grid-column: 1;
+    justify-self: center;
+  }
+
+  .master__inner > .segmeter {
+    justify-self: stretch;
+  }
+
+  .master__inner > .muted-alert,
+  .master__mute,
+  .master__toggle,
+  .master__inner > .btn-yellow,
+  .master__msg {
+    grid-column: 2;
+    align-self: start;
+  }
+
+  /* O botão giratório ocupa várias linhas à esquerda, sem esticar os botões da direita. */
+  .master__inner > .knob {
+    grid-row: 2 / span 3;
+  }
+
+  .master__msg {
+    text-align: left;
+  }
 }

@@ -5,6 +5,7 @@ import StatusBadge from './components/StatusBadge.jsx';
 import ProblemBanner from './components/ProblemBanner.jsx';
 import ChannelStrip from './components/ChannelStrip.jsx';
 import MasterStrip from './components/MasterStrip.jsx';
+import AuditoriumPanel from './components/AuditoriumPanel.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import Onboarding from './components/Onboarding.jsx';
 import './App.css';
@@ -92,7 +93,17 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header onSettings={() => setShowSettings(true)} onHelp={() => setShowOnboarding(true)} />
+      <Header
+        auditorium={mixer.auditorium}
+        onToggleAuditorium={() => {
+          const on = !mixer.auditorium;
+          mixer.setAuditorium(on);
+          if (!on) mixer.setToneOn(false);
+          setAnnounce(on ? 'Modo Auditório ligado: o som vai sair pelo PC' : 'Modo Auditório desligado');
+        }}
+        onSettings={() => setShowSettings(true)}
+        onHelp={() => setShowOnboarding(true)}
+      />
 
       <main className="app__main">
         <div className="app__top">
@@ -101,6 +112,8 @@ export default function App() {
             <ProblemBanner status={mixer.status} onRetry={mixer.retry} />
           )}
         </div>
+
+        {mixer.auditorium && <AuditoriumPanel mixer={mixer} />}
 
         {/* A mesa: corpo azul-ardósia com o friso creme do estojo. */}
         <div className="console">
@@ -134,6 +147,7 @@ export default function App() {
               limiting={mixer.meters.limiting}
               mutedTalking={mixer.mutedTalking.master}
               canAntiBleed={mixer.channelCount >= 2}
+              auditorium={mixer.auditorium}
               ready={ready}
               calibrating={mixer.calibrating}
               autoMessage={autoMessage}

@@ -1,0 +1,219 @@
+.aud {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--edge);
+  border-top: 3px solid var(--yellow);
+  border-radius: var(--radius-lg);
+  background: var(--metal);
+  box-shadow: var(--shadow-raised);
+}
+
+.aud__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.aud__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Selo AO VIVO: vermelho aceso quando o som está indo para a mesa. */
+.aud__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: var(--face);
+  color: var(--text-lo);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.aud__live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #3a4352;
+}
+
+.aud__live.is-live {
+  border-color: var(--danger);
+  color: var(--text-hi);
+}
+
+.aud__live.is-live .aud__live-dot {
+  background: var(--danger);
+  box-shadow: 0 0 10px var(--danger);
+  animation: aud-live 1.6s ease-in-out infinite;
+}
+
+@keyframes aud-live {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.aud__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.aud__tile {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-md);
+  background: rgb(0 0 0 / 0.22);
+}
+
+.aud__label {
+  color: var(--text-lo);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.aud__select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 10px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: var(--face);
+}
+
+.aud__value {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.aud__value--small {
+  font-size: 18px;
+}
+
+.aud__value--ok {
+  color: var(--cyan);
+}
+
+.aud__value--mid {
+  color: var(--text-hi);
+}
+
+.aud__value--high {
+  color: var(--warn);
+}
+
+.aud__value--idle {
+  color: var(--text-lo);
+}
+
+.aud__hint {
+  margin: 0;
+  color: var(--text-lo);
+  font-size: 13px;
+}
+
+.aud__tone {
+  min-height: 46px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, #2c3442, #1c222c);
+  font-weight: 700;
+  transition: background var(--dur), color var(--dur), border-color var(--dur);
+}
+
+.aud__tone.is-on {
+  border-color: var(--yellow-deep);
+  background: linear-gradient(180deg, var(--yellow-hi), var(--yellow));
+  color: var(--on-yellow);
+}
+
+.aud__tone:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.aud__check summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--text-hi);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.aud__check ol {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding-left: 22px;
+  color: var(--text-lo);
+}
+
+@media (max-width: 420px) {
+  .aud {
+    padding: 14px 12px 16px;
+  }
+
+  .aud__title {
+    font-size: 19px;
+  }
+}
+
+/* Celular: painel mais baixo (2 colunas), para a mesa aparecer logo abaixo. */
+@media (max-width: 520px) {
+  .aud {
+    gap: 12px;
+  }
+
+  .aud__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .aud__tile {
+    padding: 10px;
+    gap: 6px;
+  }
+
+  .aud__tile:first-child,
+  .aud__tile:nth-child(2) {
+    grid-column: 1 / -1;
+  }
+
+  .aud__value {
+    font-size: 22px;
+  }
+
+  .aud__hint {
+    font-size: 12px;
+  }
+
+  /* No celular, só as dicas que pedem ação (atraso alto, tela pode apagar, tom tocando). */
+  .aud__hint:not(.is-important) {
+    display: none;
+  }
+
+  .aud__live {
+    font-size: 13px;
+  }
+}

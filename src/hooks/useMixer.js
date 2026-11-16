@@ -25,6 +25,10 @@ import rnnoiseSimdWasmUrl from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wa
  * No master, um limitador impede a mistura de estourar.
  * Mesmo no mudo, o detector continua ouvindo para avisar "você está no mudo".
  *
+ * Saída (Modo Auditório): master -> limitador -> mudo geral -> saída -> placa de som do PC
+ * (P2 -> mesa do auditório). A saída sobe devagar ao ligar, para não estalar nas caixas,
+ * e pode ir para outro aparelho (fone, HDMI...) com AudioContext.setSinkId.
+ *
  * Isolador de voz (IA): entre o filtro de graves e o fader, cada canal pode passar por
  * um modelo de rede neural (GTCRN; RNNoise se o GTCRN não carregar) que separa a voz
  * do resto e tira o barulho até enquanto a pessoa fala. Ele só é baixado na primeira
@@ -67,6 +71,13 @@ const DUCK_HOLD_MS = 350;
 const MUTED_TALK_MS = 600;
 const MUTED_TALK_MIN_DB = -48;
 const MUTED_TALK_CLEAR_MS = 1500;
+
+// Modo Auditório
+const OUTPUT_FADE_IN_S = 1.5; // subida suave da saída ao ligar
+const TONE_HZ = 1000;
+const TONE_AMP = Math.pow(10, -18 / 20) * Math.SQRT2; // tom de referência: -18 dBFS RMS
+const TONE_MAX_MS = 60000; // desliga sozinho depois de 1 minuto
+const ISOLATOR_LATENCY_MS = 16; // quadro de 768 amostras a 48 kHz
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const dbToNorm = (db) => clamp((db - MIN_DB) / (MAX_DB - MIN_DB), 0, 1);
@@ -156,6 +167,17 @@ export function useMixer() {
     monitor: false,
     antiBleed: readStored('antiBleed', true),
   }));
+  // Modo Auditório: a mistura sai pela placa de som do PC para a mesa de som.
+  const [auditorium, setAuditorium] = useState(() => readStored('auditorium', false));
+  const [outputDevices, setOutputDevices] = useState([]);
+  const [outputDeviceId, setOutputDeviceId] = useState(() => readStored('outputDeviceId', ''));
+  const [sinkSupported] = useState(
+    () => typeof AudioContext !== 'undefined' && typeof AudioContext.prototype.setSinkId === 'function',
+  );
+  const [toneOn, setToneOn] = useState(false);
+  const [latencyMs, setLatencyMs] = useState(null);
+  // idle | on | unsupported | error
+  const [wakeLock, setWakeLock] = useState('idle');
   const [meters, setMeters] = useState(emptyMeters);
   const [floors, setFloors] = useState(() => new Array(CHANNELS).fill(-70));
   const [gates, setGates] = useState(() => new Array(CHANNELS).fill(false));
@@ -171,7 +193,9 @@ export function useMixer() {
   const nodesRef = useRef(null);
   const sourceRef = useRef(null);
   const streamRef = useRef(null);
-  const monitorOnRef = useRef(false);
+  const inputLatencyRef = useRef(0);
+  const toneRef = useRef(null);
+  const outputOnRef = useRef(false);
   const genRef = useRef(0);
   const calibRef = useRef(null);
   const statusRef = useRef(status);
@@ -210,6 +234,11 @@ export function useMixer() {
       .filter((d) => d.kind === 'audioinput')
       .map((d, i) => ({ id: d.deviceId, label: d.label || `Receptor ${i + 1}` }));
     setDevices(inputs);
+    setOutputDevices(
+      list
+        .filter((d) => d.kind === 'audiooutput' && d.deviceId !== 'default' && d.deviceId !== 'communications')
+        .map((d, i) => ({ id: d.deviceId, label: d.label || `Saída ${i + 1}` })),
+    );
     return inputs;
   }, []);
 
@@ -227,15 +256,18 @@ export function useMixer() {
     if (ctxRef.current) return ctxRef.current;
     // 48 kHz: é a taxa que os modelos de isolamento de voz esperam.
     let ctx;
+    // latencyHint "interactive": o menor atraso que o navegador consegue (importante ao vivo).
     try {
-      ctx = new AudioContext({ sampleRate: 48000 });
+      ctx = new AudioContext({ sampleRate: 48000, latencyHint: 'interactive' });
     } catch {
-      ctx = new AudioContext();
+      ctx = new AudioContext({ latencyHint: 'interactive' });
     }
     const splitter = ctx.createChannelSplitter(CHANNELS);
     const sum = ctx.createGain();
     const masterGain = ctx.createGain();
     const masterMute = ctx.createGain();
+    const out = ctx.createGain();
+    out.gain.value = 0;
     const masterAnalyser = ctx.createAnalyser();
     masterAnalyser.fftSize = 2048;
     const limiter = ctx.createDynamicsCompressor();
@@ -287,10 +319,13 @@ export function useMixer() {
     masterGain.connect(limiter);
     limiter.connect(masterMute);
     masterMute.connect(masterAnalyser);
+    masterMute.connect(out);
+    out.connect(ctx.destination);
 
     ctxRef.current = ctx;
-    nodesRef.current = { splitter, ch, sum, masterGain, limiter, masterMute, masterAnalyser };
-    monitorOnRef.current = false;
+    nodesRef.current = { splitter, ch, sum, masterGain, limiter, masterMute, masterAnalyser, out };
+    outputOnRef.current = false;
+    toneRef.current = null;
     setSampleRate(ctx.sampleRate);
     return ctx;
   }, []);
@@ -404,6 +439,7 @@ export function useMixer() {
       streamRef.current = stream;
 
       const settings = track.getSettings?.() ?? {};
+      inputLatencyRef.current = Number.isFinite(settings.latency) ? settings.latency : 0;
       setChannelCount(settings.channelCount === 1 ? 1 : 2);
       setDeviceLabel(track.label || 'Receptor');
       if (settings.deviceId) setDeviceId(settings.deviceId);
@@ -420,6 +456,11 @@ export function useMixer() {
       genRef.current++;
       stopStream();
       nodesRef.current?.ch.forEach((n) => n.iso?.destroy?.());
+      try {
+        toneRef.current?.osc.stop();
+      } catch {
+        /* já parado */
+      }
       ctxRef.current?.close().catch(() => {});
       ctxRef.current = null;
       nodesRef.current = null;
@@ -621,24 +662,118 @@ export function useMixer() {
     );
   }, [channels, isolator.status, status, ensureIsolator]);
 
-  // Aplica master e "Me ouvir no fone".
+  // Aplica master e a saída (fone ou Modo Auditório).
+  const outputOn = auditorium || master.monitor;
   useEffect(() => {
     const nodes = nodesRef.current;
     const ctx = ctxRef.current;
     if (nodes && ctx) {
       nodes.masterGain.gain.setTargetAtTime(sliderToGain(master.volume), ctx.currentTime, 0.03);
       nodes.masterMute.gain.setTargetAtTime(master.muted ? 0 : 1, ctx.currentTime, 0.01);
-      if (master.monitor && !monitorOnRef.current) {
-        nodes.masterMute.connect(ctx.destination);
-        monitorOnRef.current = true;
-      } else if (!master.monitor && monitorOnRef.current) {
-        nodes.masterMute.disconnect(ctx.destination);
-        monitorOnRef.current = false;
+      if (outputOn !== outputOnRef.current) {
+        const g = nodes.out.gain;
+        const t = ctx.currentTime;
+        g.cancelScheduledValues(t);
+        g.setValueAtTime(g.value, t);
+        // Liga subindo devagar (sem estalo nas caixas); desliga rápido.
+        g.linearRampToValueAtTime(outputOn ? 1 : 0, t + (outputOn ? (auditorium ? OUTPUT_FADE_IN_S : 0.15) : 0.1));
+        outputOnRef.current = outputOn;
       }
     }
     writeStored('masterVolume', master.volume);
     writeStored('antiBleed', master.antiBleed);
-  }, [master, status]);
+  }, [master, status, outputOn, auditorium]);
+
+  useEffect(() => {
+    writeStored('auditorium', auditorium);
+  }, [auditorium]);
+
+  // Para qual aparelho o som sai (P2/fone, HDMI...). '' = saída padrão do Windows.
+  useEffect(() => {
+    writeStored('outputDeviceId', outputDeviceId);
+    const ctx = ctxRef.current;
+    if (!ctx || !sinkSupported) return;
+    ctx.setSinkId(outputDeviceId).catch((err) => {
+      console.warn('Não consegui trocar a saída de áudio.', err);
+      setOutputDeviceId('');
+    });
+  }, [outputDeviceId, status, sinkSupported]);
+
+  // Atraso estimado dentro do PC: entrada + processamento + saída (+ isolador, se ligado).
+  const anyIsolate = channels.some((c) => c.isolate) && isolator.status === 'ready';
+  useEffect(() => {
+    const read = () => {
+      const ctx = ctxRef.current;
+      if (!ctx || statusRef.current !== 'ready') return setLatencyMs(null);
+      const sec = (ctx.baseLatency || 0) + (ctx.outputLatency || 0) + inputLatencyRef.current;
+      setLatencyMs(Math.round(sec * 1000 + (anyIsolate ? ISOLATOR_LATENCY_MS : 0)));
+    };
+    read();
+    const id = setInterval(read, 2000);
+    return () => clearInterval(id);
+  }, [status, anyIsolate]);
+
+  // Tela sempre ligada no Modo Auditório (o PC não pode dormir no meio do evento).
+  useEffect(() => {
+    if (!auditorium) {
+      setWakeLock('idle');
+      return;
+    }
+    if (!('wakeLock' in navigator)) {
+      setWakeLock('unsupported');
+      return;
+    }
+    let lock = null;
+    let cancelled = false;
+    const acquire = async () => {
+      try {
+        lock = await navigator.wakeLock.request('screen');
+        if (cancelled) lock.release().catch(() => {});
+        else setWakeLock('on');
+        lock.addEventListener?.('release', () => !cancelled && setWakeLock('idle'));
+      } catch {
+        if (!cancelled) setWakeLock('error');
+      }
+    };
+    // O navegador solta a trava quando a aba fica escondida: pega de novo ao voltar.
+    const onVisible = () => document.visibilityState === 'visible' && acquire();
+    acquire();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      lock?.release().catch(() => {});
+    };
+  }, [auditorium]);
+
+  /** Tom de teste de 1 kHz (-18 dBFS) direto na saída, para o técnico acertar o volume na mesa. */
+  const setTone = useCallback((on) => {
+    const ctx = ctxRef.current;
+    const nodes = nodesRef.current;
+    if (!ctx || !nodes) return;
+    if (on && !toneRef.current) {
+      const osc = ctx.createOscillator();
+      osc.frequency.value = TONE_HZ;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(TONE_AMP, ctx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(nodes.out);
+      osc.start();
+      const timer = setTimeout(() => setToneOn(false), TONE_MAX_MS);
+      toneRef.current = { osc, gain, timer };
+    } else if (!on && toneRef.current) {
+      const { osc, gain, timer } = toneRef.current;
+      clearTimeout(timer);
+      gain.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
+      osc.stop(ctx.currentTime + 0.3);
+      toneRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    setTone(toneOn);
+  }, [toneOn, setTone]);
 
   useEffect(() => {
     writeStored('deviceId', deviceId);
@@ -721,6 +856,17 @@ export function useMixer() {
       setIsolator({ status: 'idle', kind: null });
     },
     retry: () => start(deviceId),
+    auditorium,
+    setAuditorium,
+    outputOn,
+    outputDevices,
+    outputDeviceId,
+    setOutputDeviceId,
+    sinkSupported,
+    toneOn,
+    setToneOn,
+    latencyMs,
+    wakeLock,
     chooseDevice,
     setChannel,
     setMaster,

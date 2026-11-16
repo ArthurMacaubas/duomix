@@ -416,3 +416,72 @@
     transform: translateX(20px);
   }
 }
+
+/* Celular: o canal ocupa a largura toda. Medidor e fader numa coluna à esquerda,
+   controles empilhados à direita, para não precisar rolar tanto. */
+@media (max-width: 699px) {
+  .strip {
+    display: grid;
+    grid-template-columns: 118px minmax(0, 1fr);
+    column-gap: 14px;
+    row-gap: 12px;
+    align-items: start;
+    padding: 16px 14px 18px;
+  }
+
+  .strip > * {
+    grid-column: 2;
+  }
+
+  .strip > .strip__head,
+  .strip > .strip__msg,
+  .strip > .muted-alert,
+  .strip > .strip__mono {
+    grid-column: 1 / -1;
+  }
+
+  .strip__body {
+    grid-column: 1;
+    grid-row: 3 / span 6;
+    align-self: start;
+    height: 270px;
+    padding: 12px 6px;
+    gap: 8px;
+  }
+
+  .strip__readout {
+    margin: 0;
+    text-align: left;
+  }
+
+  .strip__duck {
+    margin: -8px 0 0;
+    text-align: left;
+  }
+
+  .strip__leveler {
+    margin: -4px 0 -6px;
+  }
+}
+/* Celular: a coluna da direita é estreita, então a linha "Nivelar voz" usa a versão compacta. */
+@media (max-width: 699px) {
+  .strip__leveler .toggle__icon,
+  .strip__leveler .toggle__help-btn {
+    display: none;
+  }
+
+  .strip__leveler .toggle__main {
+    gap: 6px;
+  }
+
+  .strip__leveler .toggle__label {
+    margin-right: auto;
+    font-size: 16px;
+    white-space: nowrap;
+  }
+
+  .strip__leveler-help {
+    display: block;
+    margin-top: -10px;
+  }
+}

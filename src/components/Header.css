@@ -68,3 +68,92 @@
     font-size: 26px;
   }
 }
+
+/* Botão do Modo Auditório: amarelo quando ligado. */
+.mode-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0 16px;
+  border: 1px solid var(--line-control);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-hi);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: background var(--dur), color var(--dur), border-color var(--dur), box-shadow var(--dur);
+}
+
+.mode-pill__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #3a4352;
+}
+
+.mode-pill__state {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text-lo);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.mode-pill:hover {
+  border-color: var(--yellow);
+}
+
+.mode-pill.is-on {
+  border-color: var(--yellow-deep);
+  background: linear-gradient(180deg, var(--yellow-hi), var(--yellow));
+  color: var(--on-yellow);
+  box-shadow: 0 0 20px rgb(245 217 10 / 0.3);
+}
+
+.mode-pill.is-on .mode-pill__dot {
+  background: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+}
+
+.mode-pill.is-on .mode-pill__state {
+  background: rgb(0 0 0 / 0.15);
+  color: var(--on-yellow);
+}
+
+/* Telas menores: o botão do modo desce para uma linha própria, largo e fácil de tocar. */
+@media (max-width: 640px) {
+  .header {
+    flex-wrap: wrap;
+  }
+
+  .mode-pill {
+    order: 3;
+    justify-content: center;
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+/* A marca pode encolher (o slogan quebra linha) para os botões ficarem na mesma linha. */
+.header__brand {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (max-width: 420px) {
+  .header__tagline {
+    font-size: 13px;
+  }
+
+  .header__brand img {
+    width: 40px;
+    height: 40px;
+  }
+}

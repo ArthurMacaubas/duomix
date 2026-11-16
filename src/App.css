@@ -70,6 +70,7 @@
 }
 
 .console__device {
+  min-width: 0;
   overflow: hidden;
   color: var(--text-lo);
   font-size: 13px;
@@ -85,13 +86,22 @@
   align-items: start;
 }
 
-@media (max-width: 860px) {
+/* Tablet e notebook pequeno: canais lado a lado, master largo embaixo. */
+@media (max-width: 1080px) {
   .console__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .console__grid > .master {
     grid-column: 1 / -1;
+  }
+}
+
+/* Celular: um canal por linha, cada um na largura toda. */
+@media (max-width: 699px) {
+  .console__grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
   }
 }
 
