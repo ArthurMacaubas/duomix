@@ -84,9 +84,8 @@ export default function SettingsPanel({ mixer, onClose, onRestartSetup }) {
             <dd>Ctrl + M mudo geral · Alt + 1 / Alt + 2 mudo de cada microfone</dd>
           </dl>
           <p className="advanced__note">
-            Nesta versão web, a mesa funciona dentro do app (medidores e fone), não no som que outros programas recebem.
-            Para mandar a mistura para o Discord, OBS ou Zoom, o app precisa virar programa de computador com um
-            microfone virtual.
+            A mistura sai pela placa de som do PC (fone, P2 ou Modo Auditório). Ela ainda não vira um microfone que o
+            Discord, OBS ou Zoom possam escolher: para isso o app precisa de um microfone virtual.
           </p>
         </details>
 

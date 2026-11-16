@@ -274,3 +274,37 @@
   color: var(--text-lo);
   font-size: 14px;
 }
+
+/* Nomes longos de aparelho ("Microfone (High Definition Audio Device)") não podem
+   empurrar o painel para os lados: tudo encolhe até a largura da janela. */
+.sheet {
+  overflow-x: hidden;
+}
+
+.field {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.field__select {
+  width: 100%;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
+.advanced__list {
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+}
+
+/* Celular: cada informação embaixo do seu nome, em vez de duas colunas apertadas. */
+@media (max-width: 480px) {
+  .advanced__list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .advanced__list dd {
+    margin-bottom: 10px;
+    text-align: left;
+  }
+}
