@@ -1,6 +1,8 @@
-# 🔴 Brasa Mic
+# 🔴 Rubro
 
-Painel simples e bonito para controlar seu microfone, feito para quem não entende de áudio.
+**Sua voz, no ponto.**
+
+O painel do seu microfone, feito para quem não entende de áudio.
 O visual segue o próprio microfone: corpo preto, detalhes em vermelho e uma grade que "acende" quando você fala.
 
 **Autor:** Arthur Macaúbas
@@ -12,7 +14,8 @@ O visual segue o próprio microfone: corpo preto, detalhes em vermelho e uma gra
 - Medidor de voz desenhado como a grade do microfone.
 - Botão de mudo gigante, com atalho `Ctrl + M`.
 - "Ajustar sozinho": você fala por 5 segundos e ele acerta o volume da sua voz.
-- "Me ouvir no fone" e "Tirar barulho de fundo".
+- Redutor de ruído em 3 níveis (Desligado, Leve, Forte), com leitura do barulho do ambiente.
+- "Me ouvir no fone".
 - Guia de primeiro uso em 3 passos e avisos com o passo a passo para cada problema.
 
 ## Como rodar
@@ -38,5 +41,5 @@ src/
 
 ## Limitação atual
 
-Na versão web, o volume é ajustado dentro do app, não no microfone físico.
+Na versão web, o volume e o redutor de ruído funcionam dentro do app (medidor e fone), não no microfone físico nem no som que outros programas recebem.
 Controlar o hardware (ganho, LED e botão de mudo do aparelho) exige empacotar o app em Electron ou Tauri.

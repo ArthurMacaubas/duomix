@@ -17,7 +17,7 @@
   gap: 4px;
   margin-top: 16px;
   padding: 4px;
-  border: 1px solid var(--mic-steel);
+  border: 1px solid var(--line-control);
   border-radius: var(--radius-sm);
   background: #0a0a0c;
   box-shadow: var(--shadow-inset);

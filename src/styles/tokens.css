@@ -9,6 +9,7 @@
   --mic-red-glow: #ff2d20;
   --mic-red-deep: #8a0a05;
   --mic-red-text: #ff4d40; /* vermelho para texto pequeno, contraste AA sobre preto */
+  --line-control: #6a6a74; /* borda de controles: 3:1 sobre o fundo (WCAG 1.4.11) */
 
   --text-hi: #f5f5f7;
   --text-lo: #9a9aa3;

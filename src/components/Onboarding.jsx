@@ -38,7 +38,7 @@ export default function Onboarding({ mic, onDone }) {
           <div className="onboarding__step">
             <img src="/mic.svg" alt="" width="88" height="88" className="onboarding__logo" />
             <h2 id="ob-title" className="onboarding__title">
-              Bem-vindo ao Brasa Mic
+              Bem-vindo ao Rubro
             </h2>
             <p className="onboarding__text">Vamos deixar sua voz perfeita em 1 minuto.</p>
             <button type="button" className="btn-primary" onClick={() => setStep(1)}>

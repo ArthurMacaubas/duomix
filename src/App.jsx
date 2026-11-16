@@ -84,50 +84,66 @@ export default function App() {
       <Header onSettings={() => setShowSettings(true)} onHelp={() => setShowOnboarding(true)} />
 
       <main className="app__main">
-        <StatusBadge status={mic.status} deviceLabel={mic.deviceLabel} />
+        <div className="app__top">
+          <StatusBadge status={mic.status} />
+          {!ready && !['idle', 'requesting'].includes(mic.status) && (
+            <ProblemBanner status={mic.status} onRetry={mic.retry} />
+          )}
+        </div>
 
-        {!ready && !['idle', 'requesting'].includes(mic.status) && (
-          <ProblemBanner status={mic.status} onRetry={mic.retry} />
-        )}
+        <div className="layout">
+          {/* O "corpo do microfone": metal escovado, parafusos e plaqueta gravada. */}
+          <section className="device" aria-label="Seu microfone">
+            <span className="device__screw device__screw--tl" aria-hidden="true" />
+            <span className="device__screw device__screw--tr" aria-hidden="true" />
+            <span className="device__screw device__screw--bl" aria-hidden="true" />
+            <span className="device__screw device__screw--br" aria-hidden="true" />
 
-        <section className="meter" aria-label="Medidor da sua voz">
-          <MicGrille bands={mic.bands} idle={!ready} />
-          <p className={`meter__msg meter__msg--${message.tone}`}>{message.text}</p>
-        </section>
+            <div className="device__plate">
+              <span className={`device__led${ready ? (mic.muted ? ' is-muted' : ' is-live') : ''}`} aria-hidden="true" />
+              <span className="device__brand">Rubro</span>
+              <span className="device__model">{ready ? mic.deviceLabel : 'sem microfone'}</span>
+            </div>
 
-        <MuteButton muted={mic.muted} level={mic.level} disabled={!ready} onToggle={mic.toggleMute} />
+            <MicGrille bands={mic.bands} idle={!ready} />
+            <p className={`meter__msg meter__msg--${message.tone}`}>{message.text}</p>
+            <MuteButton muted={mic.muted} level={mic.level} disabled={!ready} onToggle={mic.toggleMute} />
+          </section>
 
-        <VolumeSlider
-          value={mic.volume}
-          onChange={mic.setVolume}
-          onAuto={handleAuto}
-          calibrating={mic.calibrating}
-          autoMessage={autoMessage}
-          disabled={!ready}
-        />
-
-        <NoiseReducer
-          value={mic.noiseLevel}
-          onChange={mic.setNoiseLevel}
-          floorDb={mic.noiseFloorDb}
-          gateClosed={mic.gateClosed}
-          disabled={!ready}
-        />
-
-        <section className="card" aria-label="Extras">
-          <ToggleRow
-            icon={<HeadphonesIcon />}
-            label="Me ouvir no fone"
-            help="Você escuta a própria voz no fone de ouvido enquanto fala, já com o redutor de ruído. Use com fone para não dar microfonia."
-            checked={mic.monitor}
-            onChange={mic.setMonitor}
-            disabled={!ready}
-          />
-        </section>
+          <div className="controls">
+            <VolumeSlider
+              value={mic.volume}
+              onChange={mic.setVolume}
+              onAuto={handleAuto}
+              calibrating={mic.calibrating}
+              autoMessage={autoMessage}
+              disabled={!ready}
+            />
+    
+            <NoiseReducer
+              value={mic.noiseLevel}
+              onChange={mic.setNoiseLevel}
+              floorDb={mic.noiseFloorDb}
+              gateClosed={mic.gateClosed}
+              disabled={!ready}
+            />
+    
+            <section className="card" aria-label="Extras">
+              <ToggleRow
+                icon={<HeadphonesIcon />}
+                label="Me ouvir no fone"
+                help="Você escuta a própria voz no fone de ouvido enquanto fala, já com o redutor de ruído. Use com fone para não dar microfonia."
+                checked={mic.monitor}
+                onChange={mic.setMonitor}
+                disabled={!ready}
+              />
+            </section>
+          </div>
+        </div>
       </main>
 
       <footer className="app__footer">
-        Brasa Mic · criado por <strong>Arthur Macaúbas</strong> · © {new Date().getFullYear()}
+        Rubro · criado por <strong>Arthur Macaúbas</strong> · © {new Date().getFullYear()}
       </footer>
 
       <p className="sr-only" aria-live="assertive">

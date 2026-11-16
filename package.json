@@ -1,8 +1,8 @@
 {
-  "name": "brasa-mic",
+  "name": "rubro",
   "private": true,
   "version": "0.1.0",
-  "description": "Brasa Mic: painel simples e bonito para controlar seu microfone.",
+  "description": "Rubro: o painel do seu microfone. Sua voz, no ponto.",
   "author": "Arthur Macaúbas",
   "type": "module",
   "scripts": {
