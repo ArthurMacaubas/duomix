@@ -1,0 +1,101 @@
+.noise__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.noise__icon {
+  display: grid;
+  place-items: center;
+  color: var(--mic-red-text);
+}
+
+/* Seletor de 3 posições, como uma chave física. */
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-top: 16px;
+  padding: 4px;
+  border: 1px solid var(--mic-steel);
+  border-radius: var(--radius-sm);
+  background: #0a0a0c;
+  box-shadow: var(--shadow-inset);
+}
+
+.segmented__opt {
+  min-height: 48px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-lo);
+  font-size: 17px;
+  font-weight: 600;
+  transition: background var(--dur), color var(--dur), box-shadow var(--dur);
+}
+
+.segmented__opt:hover:not(:disabled):not(.is-on) {
+  color: var(--text-hi);
+  background: var(--mic-graphite-2);
+}
+
+.segmented__opt.is-on {
+  background: linear-gradient(180deg, var(--mic-red), #b80500);
+  color: #fff;
+  box-shadow: 0 4px 14px rgb(225 6 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.2);
+}
+
+.segmented__opt:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.noise__help {
+  margin: 12px 0 0;
+  color: var(--text-lo);
+}
+
+.noise__ambient {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--mic-steel);
+}
+
+.noise__amb--ok {
+  color: var(--ok-green);
+}
+
+.noise__amb--mid {
+  color: var(--text-hi);
+}
+
+.noise__amb--high {
+  color: var(--warn-amber);
+}
+
+.noise__chip {
+  padding: 4px 12px;
+  border: 1px solid var(--mic-steel);
+  border-radius: 999px;
+  background: var(--mic-graphite-2);
+  font-size: 14px;
+}
+
+.noise__suggest {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--warn-amber);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--warn-amber);
+  font-weight: 600;
+}
+
+.noise__suggest:hover {
+  background: rgb(255 176 32 / 0.12);
+}

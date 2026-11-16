@@ -9,7 +9,8 @@ import ToggleRow from './components/ToggleRow.jsx';
 import ProblemBanner from './components/ProblemBanner.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import Onboarding from './components/Onboarding.jsx';
-import { HeadphonesIcon, WindIcon } from './components/Icons.jsx';
+import NoiseReducer from './components/NoiseReducer.jsx';
+import { HeadphonesIcon } from './components/Icons.jsx';
 import './App.css';
 
 function readOnboarded() {
@@ -105,21 +106,21 @@ export default function App() {
           disabled={!ready}
         />
 
+        <NoiseReducer
+          value={mic.noiseLevel}
+          onChange={mic.setNoiseLevel}
+          floorDb={mic.noiseFloorDb}
+          gateClosed={mic.gateClosed}
+          disabled={!ready}
+        />
+
         <section className="card" aria-label="Extras">
           <ToggleRow
             icon={<HeadphonesIcon />}
             label="Me ouvir no fone"
-            help="Você escuta a própria voz no fone de ouvido enquanto fala. Use com fone para não dar microfonia."
+            help="Você escuta a própria voz no fone de ouvido enquanto fala, já com o redutor de ruído. Use com fone para não dar microfonia."
             checked={mic.monitor}
             onChange={mic.setMonitor}
-            disabled={!ready}
-          />
-          <ToggleRow
-            icon={<WindIcon />}
-            label="Tirar barulho de fundo"
-            help="Diminui ventilador, teclado e barulho da rua para sua voz ficar mais limpa."
-            checked={mic.noiseSuppression}
-            onChange={mic.setNoiseSuppression}
             disabled={!ready}
           />
         </section>

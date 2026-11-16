@@ -51,11 +51,14 @@ export default function SettingsPanel({ mic, onClose, onRestartSetup }) {
             <dd>{mic.sampleRate ? `${(mic.sampleRate / 1000).toFixed(1)} kHz` : '—'}</dd>
             <dt>Volume da voz (ganho no app)</dt>
             <dd>{`${(((mic.volume - 50) / 50) * 12).toFixed(1)} dB`}</dd>
+            <dt>Barulho do ambiente</dt>
+            <dd>{mic.status === 'ready' ? `${mic.noiseFloorDb} dB` : '—'}</dd>
             <dt>Atalho de mudo</dt>
             <dd>Ctrl + M (com o app aberto)</dd>
           </dl>
           <p className="advanced__note">
-            Nesta versão web, o volume é ajustado dentro do app. O controle direto do hardware (ganho físico, LED e
+            Nesta versão web, o volume e o redutor de ruído funcionam dentro do app (medidor e fone), não no som
+            que outros programas recebem. O controle direto do hardware (ganho físico, LED e
             botão de mudo do microfone) chega na versão para computador.
           </p>
         </details>
