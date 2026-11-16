@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { GtcrnWorkletNode, RnnoiseWorkletNode, loadGtcrn, loadRnnoise } from '@sapphi-red/web-noise-suppressor';
+import gtcrnWorkletUrl from '@sapphi-red/web-noise-suppressor/gtcrnWorklet.js?url';
+import gtcrnWasmUrl from '@sapphi-red/web-noise-suppressor/gtcrn.wasm?url';
+import rnnoiseWorkletUrl from '@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url';
+import rnnoiseWasmUrl from '@sapphi-red/web-noise-suppressor/rnnoise.wasm?url';
+import rnnoiseSimdWasmUrl from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url';
 
 /*
  * useMixer: mesa de som de 2 canais para receptores de microfone duplo sem fio.
@@ -11,6 +17,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  *                                                                                                                         \-> fone
  *
  * Em modo mono o receptor já mistura os dois: só o canal 1 recebe som.
+ *
+ * Isolador de voz (IA): entre o filtro de graves e o fader, cada canal pode passar por
+ * um modelo de rede neural (GTCRN; RNNoise se o GTCRN não carregar) que separa a voz
+ * do resto e tira o barulho até enquanto a pessoa fala. Ele só é baixado na primeira
+ * vez que alguém liga o isolador, e exige áudio a 48 kHz.
  *
  * Limitação do navegador: tudo isso muda o som dentro do app (medidores e fone),
  * não o que outros programas recebem. Para isso o app precisa rodar como programa
@@ -79,6 +90,7 @@ function loadChannels() {
       name: typeof s.name === 'string' && s.name.trim() ? s.name : `Microfone ${i + 1}`,
       volume: Number.isFinite(s.volume) ? s.volume : 50,
       noise: NOISE_LEVELS.includes(s.noise) ? s.noise : 'leve',
+      isolate: s.isolate === true,
       muted: false,
     };
   });
@@ -123,8 +135,11 @@ export function useMixer() {
   const [floors, setFloors] = useState(() => new Array(CHANNELS).fill(-70));
   const [gates, setGates] = useState(() => new Array(CHANNELS).fill(false));
   const [calibrating, setCalibrating] = useState(false);
+  // idle | loading | ready | error ; kind: 'gtcrn' | 'rnnoise'
+  const [isolator, setIsolator] = useState({ status: 'idle', kind: null });
 
   const ctxRef = useRef(null);
+  const isoLoadRef = useRef(null);
   const nodesRef = useRef(null);
   const sourceRef = useRef(null);
   const streamRef = useRef(null);
@@ -173,7 +188,13 @@ export function useMixer() {
 
   const ensureGraph = useCallback(() => {
     if (ctxRef.current) return ctxRef.current;
-    const ctx = new AudioContext();
+    // 48 kHz: é a taxa que os modelos de isolamento de voz esperam.
+    let ctx;
+    try {
+      ctx = new AudioContext({ sampleRate: 48000 });
+    } catch {
+      ctx = new AudioContext();
+    }
     const splitter = ctx.createChannelSplitter(CHANNELS);
     const sum = ctx.createGain();
     const masterGain = ctx.createGain();
@@ -196,14 +217,21 @@ export function useMixer() {
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
 
+      // Dois caminhos até o fader: direto (dry) ou pelo isolador de voz (wet).
+      const dry = ctx.createGain();
+      const wet = ctx.createGain();
+      wet.gain.value = 0;
+
       splitter.connect(hp, i);
-      hp.connect(fader);
+      hp.connect(dry);
+      dry.connect(fader);
+      wet.connect(fader);
       fader.connect(detector);
       fader.connect(gate);
       gate.connect(mute);
       mute.connect(analyser);
       mute.connect(sum);
-      return { hp, fader, detector, gate, mute, analyser };
+      return { hp, dry, wet, iso: null, fader, detector, gate, mute, analyser };
     });
 
     sum.connect(masterGain);
@@ -215,6 +243,55 @@ export function useMixer() {
     monitorOnRef.current = false;
     setSampleRate(ctx.sampleRate);
     return ctx;
+  }, []);
+
+  /** Baixa o modelo de IA (uma vez só) e liga um isolador em cada canal. */
+  const ensureIsolator = useCallback(() => {
+    if (isoLoadRef.current) return isoLoadRef.current;
+    const ctx = ctxRef.current;
+    const nodes = nodesRef.current;
+    if (!ctx || !nodes) return Promise.resolve(false);
+    if (ctx.sampleRate !== 48000 || !ctx.audioWorklet) {
+      setIsolator({ status: 'error', kind: null });
+      return Promise.resolve(false);
+    }
+
+    setIsolator({ status: 'loading', kind: null });
+    const attach = (makeNode) => {
+      nodes.ch.forEach((n) => {
+        n.iso = makeNode();
+        n.hp.connect(n.iso);
+        n.iso.connect(n.wet);
+      });
+    };
+
+    const job = (async () => {
+      try {
+        const wasm = await loadGtcrn({ url: gtcrnWasmUrl });
+        await ctx.audioWorklet.addModule(gtcrnWorkletUrl);
+        if (ctxRef.current !== ctx) return false;
+        attach(() => new GtcrnWorkletNode(ctx, { maxChannels: 1, wasmBinary: wasm }));
+        setIsolator({ status: 'ready', kind: 'gtcrn' });
+        return true;
+      } catch (err) {
+        console.warn('GTCRN indisponível, usando RNNoise.', err);
+      }
+      try {
+        const wasm = await loadRnnoise({ url: rnnoiseWasmUrl, simdUrl: rnnoiseSimdWasmUrl });
+        await ctx.audioWorklet.addModule(rnnoiseWorkletUrl);
+        if (ctxRef.current !== ctx) return false;
+        attach(() => new RnnoiseWorkletNode(ctx, { maxChannels: 1, wasmBinary: wasm }));
+        setIsolator({ status: 'ready', kind: 'rnnoise' });
+        return true;
+      } catch (err) {
+        console.error('Isolador de voz indisponível.', err);
+        setIsolator({ status: 'error', kind: null });
+        isoLoadRef.current = null; // permite tentar de novo
+        return false;
+      }
+    })();
+    isoLoadRef.current = job;
+    return job;
   }, []);
 
   const start = useCallback(
@@ -290,9 +367,11 @@ export function useMixer() {
     return () => {
       genRef.current++;
       stopStream();
+      nodesRef.current?.ch.forEach((n) => n.iso?.destroy?.());
       ctxRef.current?.close().catch(() => {});
       ctxRef.current = null;
       nodesRef.current = null;
+      isoLoadRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -406,13 +485,18 @@ export function useMixer() {
         n.fader.gain.setTargetAtTime(sliderToGain(c.volume), ctx.currentTime, 0.03);
         n.mute.gain.setTargetAtTime(c.muted ? 0 : 1, ctx.currentTime, 0.01);
         n.hp.frequency.setTargetAtTime(NOISE_PRESETS[c.noise].highpass, ctx.currentTime, 0.05);
+        // Isolador: troca suave entre o caminho direto e o caminho pela IA.
+        const useIso = c.isolate && !!n.iso;
+        n.wet.gain.setTargetAtTime(useIso ? 1 : 0, ctx.currentTime, 0.03);
+        n.dry.gain.setTargetAtTime(useIso ? 0 : 1, ctx.currentTime, 0.03);
       });
+      if (channels.some((c) => c.isolate) && isolator.status === 'idle') ensureIsolator();
     }
     writeStored(
       'channels',
-      channels.map(({ name, volume, noise }) => ({ name, volume, noise })),
+      channels.map(({ name, volume, noise, isolate }) => ({ name, volume, noise, isolate })),
     );
-  }, [channels]);
+  }, [channels, isolator.status, status, ensureIsolator]);
 
   // Aplica master e "Me ouvir no fone".
   useEffect(() => {
@@ -506,6 +590,10 @@ export function useMixer() {
     gates,
     calibrating,
     calibrationMs: CALIBRATION_MS,
+    isolator,
+    retryIsolator: () => {
+      setIsolator({ status: 'idle', kind: null });
+    },
     retry: () => start(deviceId),
     chooseDevice,
     setChannel,

@@ -14,6 +14,7 @@ botões amarelos, LEDs ciano e o friso creme do estojo.
 - **Um canal para cada microfone (TX1 e TX2)**, com nome editável, medidor de LEDs, fader, mudo e redutor de ruído próprios.
 - **Master:** volume geral num botão giratório, medidor da mistura, mudo geral (`Ctrl + M`) e "Me ouvir no fone".
 - **Ajustar tudo sozinho:** cada pessoa fala por 5 segundos e a mesa acerta o volume de cada microfone.
+- **Isolador de voz (IA) por canal:** uma rede neural (GTCRN, com RNNoise de reserva) deixa só a voz e tira o barulho até enquanto a pessoa fala. Roda no próprio navegador, sem mandar áudio para a internet, e só é baixada na primeira vez que alguém liga.
 - **Redutor de ruído por canal** em 3 níveis (Off, Leve, Forte), com leitura do barulho do ambiente.
 - Frases simples no lugar de números ("Ouvindo bem 👍", "Tá estourando!").
 - Guia de primeiro uso em 3 passos e avisos com o passo a passo para cada problema.

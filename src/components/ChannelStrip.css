@@ -1,4 +1,5 @@
 .strip {
+  container: strip / inline-size;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -240,7 +241,10 @@
   .strip {
     padding: 14px 10px 16px;
   }
+}
 
+/* Cada canal se adapta à própria largura (não à da tela). */
+@container strip (max-width: 260px) {
   .strip__head {
     flex-direction: column;
     gap: 8px;
@@ -267,5 +271,78 @@
 
   .strip__mute kbd {
     display: none;
+  }
+}
+
+/* Isolador de voz: botão de destaque com brilho ciano quando ligado. */
+.strip__iso {
+  display: grid;
+  gap: 6px;
+}
+
+.iso-btn {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: var(--face);
+  color: var(--text-hi);
+  text-align: left;
+  transition: border-color var(--dur), box-shadow var(--dur), background var(--dur);
+}
+
+.iso-btn__label {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.iso-btn__state {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text-lo);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.iso-btn.is-on {
+  border-color: var(--cyan);
+  background: linear-gradient(180deg, rgb(45 184 255 / 0.16), rgb(45 184 255 / 0.06));
+  box-shadow: 0 0 18px rgb(45 184 255 / 0.25);
+}
+
+.iso-btn.is-on svg {
+  color: var(--cyan);
+}
+
+.iso-btn.is-on .iso-btn__state {
+  background: var(--cyan);
+  color: #04121b;
+}
+
+.iso-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.iso-retry {
+  justify-self: start;
+}
+
+@container strip (max-width: 260px) {
+  .iso-btn {
+    grid-template-columns: auto 1fr;
+    padding: 6px 10px;
+  }
+
+  .iso-btn__state {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
 }

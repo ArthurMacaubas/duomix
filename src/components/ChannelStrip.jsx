@@ -1,6 +1,6 @@
 import SegmentMeter from './SegmentMeter.jsx';
 import Fader, { dbText, zoneOf } from './Fader.jsx';
-import { MicIcon, MicOffIcon } from './Icons.jsx';
+import { MicIcon, MicOffIcon, SparkleIcon } from './Icons.jsx';
 import './ChannelStrip.css';
 
 const NOISE_OPTIONS = [
@@ -24,7 +24,19 @@ function channelMessage({ ready, inactive, muted, calibrating, meter }) {
 const ambientOf = (db) => (db < -62 ? 'Baixo' : db < -48 ? 'Médio' : 'Alto');
 
 /** Canal da mesa: um microfone (TX1 ou TX2) com nome, medidor, fader, mudo e redutor de ruído. */
-export default function ChannelStrip({ index, cfg, meter, floorDb, gateClosed, ready, inactive, calibrating, onChange }) {
+export default function ChannelStrip({
+  index,
+  cfg,
+  meter,
+  floorDb,
+  gateClosed,
+  ready,
+  inactive,
+  calibrating,
+  isolator,
+  onChange,
+  onRetryIsolator,
+}) {
   const disabled = !ready || inactive;
   const msg = channelMessage({ ready, inactive, muted: cfg.muted, calibrating, meter });
   const live = !disabled && !cfg.muted && meter.level > 0.12;
@@ -76,6 +88,36 @@ export default function ChannelStrip({ index, cfg, meter, floorDb, gateClosed, r
         {cfg.muted ? 'Mudo' : 'Ligado'}
         <kbd>Alt {n}</kbd>
       </button>
+
+      <div className="strip__iso">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={cfg.isolate}
+          aria-describedby={`iso-help-${n}`}
+          className={`iso-btn${cfg.isolate ? ' is-on' : ''}`}
+          disabled={disabled}
+          onClick={() => onChange({ isolate: !cfg.isolate })}
+        >
+          <SparkleIcon size={18} />
+          <span className="iso-btn__label">Isolar voz</span>
+          <span className="iso-btn__state">{cfg.isolate ? 'Ligado' : 'Desligado'}</span>
+        </button>
+        <span id={`iso-help-${n}`} className="strip__ambient">
+          {!cfg.isolate
+            ? 'IA que deixa só a voz, até enquanto a pessoa fala'
+            : isolator.status === 'loading'
+              ? 'Carregando a IA…'
+              : isolator.status === 'error'
+                ? 'Não consegui ligar a IA neste navegador'
+                : '✨ Só a voz está passando'}
+        </span>
+        {cfg.isolate && isolator.status === 'error' && (
+          <button type="button" className="btn-secondary iso-retry" onClick={onRetryIsolator}>
+            Tentar de novo
+          </button>
+        )}
+      </div>
 
       <div className="strip__noise">
         <span className="strip__label" id={`noise-${n}`}>

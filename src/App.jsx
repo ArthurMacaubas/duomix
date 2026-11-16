@@ -110,7 +110,9 @@ export default function App() {
                 ready={ready}
                 inactive={i >= mixer.channelCount}
                 calibrating={mixer.calibrating}
+                isolator={mixer.isolator}
                 onChange={(patch) => setChannel(i, patch)}
+                onRetryIsolator={mixer.retryIsolator}
               />
             ))}
             <MasterStrip

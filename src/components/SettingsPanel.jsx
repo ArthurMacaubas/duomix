@@ -66,6 +66,18 @@ export default function SettingsPanel({ mixer, onClose, onRestartSetup }) {
                 </dd>
               </div>
             ))}
+            <dt>Isolador de voz</dt>
+            <dd>
+              {mixer.isolator.status === 'ready'
+                ? mixer.isolator.kind === 'gtcrn'
+                  ? 'IA GTCRN, 48 kHz'
+                  : 'IA RNNoise, 48 kHz'
+                : mixer.isolator.status === 'loading'
+                  ? 'Carregando…'
+                  : mixer.isolator.status === 'error'
+                    ? 'Indisponível neste navegador'
+                    : 'Ainda não usado'}
+            </dd>
             <dt>Master</dt>
             <dd>{db(mixer.master.volume)}</dd>
             <dt>Atalhos</dt>
