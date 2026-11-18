@@ -33,7 +33,14 @@ import rnnoiseSimdWasmUrl from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wa
  * No master, um limitador impede a mistura de estourar.
  * Mesmo no mudo, o detector continua ouvindo para avisar "você está no mudo".
  *
- * Saída (Modo Auditório): master -> limitador -> mudo geral -> saída -> placa de som do PC
+ * Anti-microfonia (Modo Auditório):
+ *   - Caminho direto: o som pula o "Nivelar voz" (compressor) e o "Isolar voz" (IA). Os dois atrasam o som
+ *     e o compressor sobe o som da caixa entre uma frase e outra, o que alimenta a microfonia.
+ *   - Supressor automático: 8 filtros bem estreitos no master. Quando uma frequência começa a "apitar"
+ *     (um pico único, muito acima do resto, parado por ~0,25 s), um filtro corta só ela; se continuar,
+ *     corta mais fundo. A voz tem vários harmônicos ao mesmo tempo, então não é confundida com apito.
+ *
+ * Saída (Modo Auditório): master -> supressor -> limitador -> mudo geral -> saída -> placa de som do PC
  * (P2 -> mesa do auditório). A saída sobe devagar ao ligar, para não estalar nas caixas,
  * e pode ir para outro aparelho (fone, HDMI...) com AudioContext.setSinkId.
  *
@@ -88,6 +95,8 @@ const DUAL_MONO_LEVEL_DB = 1.5;
 const DUAL_MONO_ON_MS = 1500;
 const DUAL_MONO_OFF_MS = 1000;
 const DUAL_MONO_SILENCE_DB = -85; // abaixo disso não dá para saber (silêncio digital)
+// Nenhum som chegando (nem o chiado de fundo) por 3 s: cabo solto ou microfone no mudo do Windows.
+const NO_SIGNAL_MS = 3000;
 
 // Modo Auditório
 const OUTPUT_FADE_IN_S = 1.5; // subida suave da saída ao ligar
@@ -95,6 +104,21 @@ const TONE_HZ = 1000;
 const TONE_AMP = Math.pow(10, -18 / 20) * Math.SQRT2; // tom de referência: -18 dBFS RMS
 const TONE_MAX_MS = 60000; // desliga sozinho depois de 1 minuto
 const ISOLATOR_LATENCY_MS = 16; // quadro de 768 amostras a 48 kHz
+const COMPRESSOR_LATENCY_MS = 6; // o DynamicsCompressorNode do Chrome olha 6 ms à frente
+
+// Supressor de microfonia
+const FB_FILTERS = 8;
+const FB_FFT = 8192; // ~5,9 Hz por faixa a 48 kHz
+const FB_MIN_HZ = 120;
+const FB_MAX_HZ = 10000;
+const FB_MIN_DB = -50; // só olha picos com volume de verdade
+const FB_PEAK_OVER_NEIGHBORS_DB = 15; // pico estreito: bem acima da vizinhança
+const FB_PEAK_OVER_REST_DB = 12; // pico único: nenhum outro (fora da vizinhança) perto dele
+const FB_HOLD_MS = 250; // parado na mesma frequência por esse tempo = apito
+const FB_FIRST_CUT_DB = -12;
+const FB_STEP_DB = -3;
+const FB_MAX_CUT_DB = -24;
+const FB_Q = 20;
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const dbToNorm = (db) => clamp((db - MIN_DB) / (MAX_DB - MIN_DB), 0, 1);
@@ -194,6 +218,8 @@ export function useMixer() {
   const [channelCount, setChannelCount] = useState(2);
   // Os dois lados chegam iguais (estéreo falso)?
   const [dualMono, setDualMono] = useState(false);
+  // Os receptores abertos estão mandando silêncio absoluto?
+  const [noSignal, setNoSignal] = useState(false);
   const [channels, setChannels] = useState(loadChannels);
   const [master, setMasterState] = useState(() => ({
     volume: readStored('masterVolume', 50),
@@ -209,6 +235,9 @@ export function useMixer() {
     () => typeof AudioContext !== 'undefined' && typeof AudioContext.prototype.setSinkId === 'function',
   );
   const [toneOn, setToneOn] = useState(false);
+  // Anti-microfonia do Modo Auditório (ligado por padrão) e os cortes que o supressor fez.
+  const [antiFeedback, setAntiFeedback] = useState(() => readStored('antiFeedback', true));
+  const [notches, setNotches] = useState([]);
   const [latencyMs, setLatencyMs] = useState(null);
   // idle | on | unsupported | error
   const [wakeLock, setWakeLock] = useState('idle');
@@ -273,6 +302,12 @@ export function useMixer() {
   const effectiveChannels = dualMono ? 1 : channelCount;
   channelCountRef.current = effectiveChannels;
   masterRef.current = master;
+  // Modo Auditório com anti-microfonia: caminho direto e supressor ligado.
+  const feedbackSafe = auditorium && antiFeedback;
+  const feedbackSafeRef = useRef(feedbackSafe);
+  feedbackSafeRef.current = feedbackSafe;
+  // cuts[i]: corte do filtro i ({ freq, gainDb }) ou null se estiver livre.
+  const fbRef = useRef({ cand: null, cooldownUntil: 0, cuts: new Array(FB_FILTERS).fill(null) });
   const modeRef = useRef(mode);
   const singleKeyRef = useRef(deviceId);
   const dualDevicesRef = useRef(dualDevices);
@@ -374,24 +409,50 @@ export function useMixer() {
       wet.connect(fader);
       fader.connect(detector);
       fader.connect(gate);
+      // Nivelar voz: pelo compressor (comp -> makeup) ou direto (lvDry), sem os 6 ms do compressor.
+      const lvDry = ctx.createGain();
+      lvDry.gain.value = 0;
       gate.connect(comp);
       comp.connect(makeup);
       makeup.connect(duck);
+      gate.connect(lvDry);
+      lvDry.connect(duck);
       duck.connect(mute);
       mute.connect(analyser);
       mute.connect(sum);
-      return { input, hp, dry, wet, iso: null, fader, detector, gate, comp, makeup, duck, mute, analyser };
+      return { input, hp, dry, wet, iso: null, fader, detector, gate, comp, makeup, lvDry, duck, mute, analyser };
     });
 
     sum.connect(masterGain);
-    masterGain.connect(limiter);
+    // Supressor de microfonia: filtros estreitos (começam neutros, ganho 0 dB) e um analisador fino.
+    const fbFilters = Array.from({ length: FB_FILTERS }, () => {
+      const f = ctx.createBiquadFilter();
+      f.type = 'peaking';
+      f.frequency.value = 1000;
+      f.Q.value = FB_Q;
+      f.gain.value = 0;
+      return f;
+    });
+    const fbAnalyser = ctx.createAnalyser();
+    fbAnalyser.fftSize = FB_FFT;
+    fbAnalyser.smoothingTimeConstant = 0;
+    let prevNode = masterGain;
+    for (const f of fbFilters) {
+      prevNode.connect(f);
+      prevNode = f;
+    }
+    prevNode.connect(limiter);
+    prevNode.connect(fbAnalyser);
     limiter.connect(masterMute);
     masterMute.connect(masterAnalyser);
     masterMute.connect(out);
     out.connect(ctx.destination);
 
     ctxRef.current = ctx;
-    nodesRef.current = { ch, sum, masterGain, limiter, masterMute, masterAnalyser, out };
+    nodesRef.current = { ch, sum, masterGain, fbFilters, fbAnalyser, limiter, masterMute, masterAnalyser, out };
+    fbRef.current = { cand: null, cooldownUntil: 0, cuts: new Array(FB_FILTERS).fill(null) };
+    // Gancho só para os testes automáticos (página de teste define window.__duomixTest).
+    if (typeof window !== 'undefined' && window.__duomixTest) window.__duomixTest.nodes = nodesRef.current;
     outputOnRef.current = false;
     toneRef.current = null;
     setSampleRate(ctx.sampleRate);
@@ -679,6 +740,90 @@ export function useMixer() {
     const pre = new Array(CHANNELS).fill(-120);
     const rawBufL = new Float32Array(1024);
     const rawBufR = new Float32Array(1024);
+    const spec = new Float32Array(FB_FFT / 2);
+    let loudSince = 0;
+    let silentSince = 0;
+    let noSignalNow = false;
+    const sigBuf = new Float32Array(1024);
+
+    /** Procura um apito: pico estreito, único e parado na mesma frequência. Se achar, corta. */
+    const detectFeedback = (now) => {
+      const nodes = nodesRef.current;
+      const ctx = ctxRef.current;
+      if (!nodes?.fbAnalyser || !ctx || now < fbRef.current.cooldownUntil) return;
+      nodes.fbAnalyser.getFloatFrequencyData(spec);
+      const binHz = ctx.sampleRate / FB_FFT;
+      const lo = Math.ceil(FB_MIN_HZ / binHz);
+      const hi = Math.min(spec.length - 42, Math.floor(FB_MAX_HZ / binHz));
+      let k = lo;
+      for (let i = lo; i <= hi; i++) if (spec[i] > spec[k]) k = i;
+      const v = spec[k];
+      const fb = fbRef.current;
+      if (!(v > FB_MIN_DB)) {
+        fb.cand = null;
+        return;
+      }
+      // Vizinhança (sem o próprio pico): um apito fica bem acima dela.
+      let sum = 0;
+      let n = 0;
+      for (let i = k - 40; i <= k + 40; i++) {
+        if (Math.abs(i - k) < 4 || i < 1) continue;
+        sum += spec[i];
+        n++;
+      }
+      const overNeighbors = v - sum / n;
+      // Fora da vizinhança: na voz sempre há outros harmônicos fortes; no apito, não.
+      const guard = Math.max(6, Math.round(k * 0.15));
+      let rest = -Infinity;
+      for (let i = lo; i <= hi; i++) if (Math.abs(i - k) > guard && spec[i] > rest) rest = spec[i];
+      const overRest = v - rest;
+      if (overNeighbors < FB_PEAK_OVER_NEIGHBORS_DB || overRest < FB_PEAK_OVER_REST_DB) {
+        fb.cand = null;
+        return;
+      }
+      // Frequência exata do pico (interpolação parabólica entre as faixas vizinhas).
+      const a = spec[k - 1];
+      const c = spec[k + 1];
+      const delta = (0.5 * (a - c)) / (a - 2 * v + c || 1);
+      const freq = (k + delta) * binHz;
+      if (fb.cand && Math.abs(freq - fb.cand.freq) <= binHz * 2) {
+        fb.cand.count++;
+        fb.cand.freq = freq;
+      } else {
+        fb.cand = { freq, since: now, count: 1 };
+      }
+      if (fb.cand.count >= 3 && now - fb.cand.since >= FB_HOLD_MS) {
+        cutFeedback(fb.cand.freq);
+        fb.cand = null;
+        fb.cooldownUntil = now + 300;
+      }
+    };
+
+    /** Corta a frequência do apito: aprofunda um filtro que já está perto, ou usa um livre. */
+    const cutFeedback = (freq) => {
+      const nodes = nodesRef.current;
+      const ctx = ctxRef.current;
+      const filters = nodes.fbFilters;
+      const cuts = fbRef.current.cuts;
+      let i = cuts.findIndex((c) => c && Math.abs(c.freq - freq) / freq < 0.03);
+      if (i >= 0) {
+        cuts[i] = { freq, gainDb: Math.max(FB_MAX_CUT_DB, cuts[i].gainDb + FB_STEP_DB) };
+      } else {
+        // Um filtro livre; se todos estiverem em uso, troca o de corte mais raso.
+        i = cuts.findIndex((c) => c === null);
+        if (i < 0) i = cuts.reduce((best, c, j) => (c.gainDb > cuts[best].gainDb ? j : best), 0);
+        cuts[i] = { freq, gainDb: FB_FIRST_CUT_DB };
+        filters[i].frequency.setValueAtTime(freq, ctx.currentTime);
+      }
+      filters[i].frequency.setTargetAtTime(freq, ctx.currentTime, 0.01);
+      filters[i].gain.setTargetAtTime(cuts[i].gainDb, ctx.currentTime, 0.005);
+      setNotches(
+        cuts
+          .filter(Boolean)
+          .map((c) => ({ freq: Math.round(c.freq), gainDb: c.gainDb }))
+          .sort((a, b) => a.freq - b.freq),
+      );
+    };
 
     const process = () => {
       const nodes = nodesRef.current;
@@ -800,6 +945,30 @@ export function useMixer() {
         setMutedTalking(next);
       }
 
+      if (feedbackSafeRef.current && outputOnRef.current) detectFeedback(now);
+
+      // Silêncio absoluto em todos os receptores abertos (nem chiado): avisa para conferir cabo e mudo do Windows.
+      let anySignal = false;
+      for (const e of devicesRef.current.values()) {
+        if (e.ended) continue;
+        for (const a of [e.rawL, e.rawR]) {
+          a.getFloatTimeDomainData(sigBuf);
+          if (rmsDb(sigBuf) > DUAL_MONO_SILENCE_DB) anySignal = true;
+        }
+      }
+      if (anySignal) {
+        silentSince = 0;
+        loudSince = loudSince || now;
+      } else {
+        loudSince = 0;
+        silentSince = silentSince || now;
+      }
+      const wantNoSignal = noSignalNow ? !anySignal ? true : now - loudSince < 300 : silentSince && now - silentSince >= NO_SIGNAL_MS;
+      if (Boolean(wantNoSignal) !== noSignalNow) {
+        noSignalNow = Boolean(wantNoSignal);
+        setNoSignal(noSignalNow);
+      }
+
       if (++ticks % 30 === 0) setFloors(procRef.current.map((p) => Math.round(p.floor)));
     };
 
@@ -869,26 +1038,28 @@ export function useMixer() {
         n.fader.gain.setTargetAtTime(sliderToGain(c.volume), ctx.currentTime, 0.03);
         n.mute.gain.setTargetAtTime(c.muted ? 0 : 1, ctx.currentTime, 0.01);
         n.hp.frequency.setTargetAtTime(NOISE_PRESETS[c.noise].highpass, ctx.currentTime, 0.05);
-        // Nivelar voz: compressor ligado, ou neutro (ratio 1 = não mexe no som).
-        const lv = c.leveler;
+        // Nivelar voz: compressor ligado, ou caminho direto (sem o atraso do compressor).
+        // No Modo Auditório com anti-microfonia, fica pausado.
+        const lv = c.leveler && !feedbackSafe;
+        n.lvDry.gain.setTargetAtTime(lv ? 0 : 1, ctx.currentTime, 0.03);
         n.comp.threshold.setTargetAtTime(lv ? LEVELER.threshold : 0, ctx.currentTime, 0.05);
         n.comp.knee.setTargetAtTime(lv ? LEVELER.knee : 0, ctx.currentTime, 0.05);
         n.comp.ratio.setTargetAtTime(lv ? LEVELER.ratio : 1, ctx.currentTime, 0.05);
         n.comp.attack.value = LEVELER.attack;
         n.comp.release.value = LEVELER.release;
-        n.makeup.gain.setTargetAtTime(lv ? Math.pow(10, LEVELER.makeupDb / 20) : 1, ctx.currentTime, 0.05);
+        n.makeup.gain.setTargetAtTime(lv ? Math.pow(10, LEVELER.makeupDb / 20) : 0, ctx.currentTime, 0.03);
         // Isolador: troca suave entre o caminho direto e o caminho pela IA.
-        const useIso = c.isolate && !!n.iso;
+        const useIso = c.isolate && !!n.iso && !feedbackSafe;
         n.wet.gain.setTargetAtTime(useIso ? 1 : 0, ctx.currentTime, 0.03);
         n.dry.gain.setTargetAtTime(useIso ? 0 : 1, ctx.currentTime, 0.03);
       });
-      if (channels.some((c) => c.isolate) && isolator.status === 'idle') ensureIsolator();
+      if (channels.some((c) => c.isolate) && isolator.status === 'idle' && !feedbackSafe) ensureIsolator();
     }
     writeStored(
       'channels',
       channels.map(({ name, volume, noise, isolate, leveler }) => ({ name, volume, noise, isolate, leveler })),
     );
-  }, [channels, isolator.status, status, ensureIsolator]);
+  }, [channels, isolator.status, status, ensureIsolator, feedbackSafe]);
 
   // Aplica master e a saída (fone ou Modo Auditório).
   const outputOn = auditorium || master.monitor;
@@ -916,6 +1087,22 @@ export function useMixer() {
     writeStored('auditorium', auditorium);
   }, [auditorium]);
 
+  useEffect(() => {
+    writeStored('antiFeedback', antiFeedback);
+  }, [antiFeedback]);
+
+  /** Tira todos os cortes do supressor (por exemplo, ao mudar de sala). */
+  const clearNotches = useCallback(() => {
+    const nodes = nodesRef.current;
+    const ctx = ctxRef.current;
+    nodes?.fbFilters.forEach((f) => {
+      f.gain.cancelScheduledValues(ctx.currentTime);
+      f.gain.setValueAtTime(0, ctx.currentTime);
+    });
+    fbRef.current = { cand: null, cooldownUntil: 0, cuts: new Array(FB_FILTERS).fill(null) };
+    setNotches([]);
+  }, []);
+
   // Para qual aparelho o som sai (P2/fone, HDMI...). '' = saída padrão do Windows.
   useEffect(() => {
     writeStored('outputDeviceId', outputDeviceId);
@@ -928,18 +1115,21 @@ export function useMixer() {
   }, [outputDeviceId, status, sinkSupported]);
 
   // Atraso estimado dentro do PC: entrada + processamento + saída (+ isolador, se ligado).
-  const anyIsolate = channels.some((c) => c.isolate) && isolator.status === 'ready';
+  const anyIsolate = channels.some((c) => c.isolate) && isolator.status === 'ready' && !feedbackSafe;
+  const anyLeveler = channels.some((c) => c.leveler) && !feedbackSafe;
   useEffect(() => {
     const read = () => {
       const ctx = ctxRef.current;
       if (!ctx || statusRef.current !== 'ready') return setLatencyMs(null);
       const sec = (ctx.baseLatency || 0) + (ctx.outputLatency || 0) + inputLatencyRef.current;
-      setLatencyMs(Math.round(sec * 1000 + (anyIsolate ? ISOLATOR_LATENCY_MS : 0)));
+      const extra =
+        (anyIsolate ? ISOLATOR_LATENCY_MS : 0) + (anyLeveler ? COMPRESSOR_LATENCY_MS : 0) + COMPRESSOR_LATENCY_MS; // + limitador
+      setLatencyMs(Math.round(sec * 1000 + extra));
     };
     read();
     const id = setInterval(read, 2000);
     return () => clearInterval(id);
-  }, [status, anyIsolate]);
+  }, [status, anyIsolate, anyLeveler]);
 
   // Tela sempre ligada no Modo Auditório (o PC não pode dormir no meio do evento).
   useEffect(() => {
@@ -1091,6 +1281,7 @@ export function useMixer() {
     channelCount: effectiveChannels,
     reportedChannels: channelCount,
     dualMono,
+    noSignal,
     channels,
     master,
     meters,
@@ -1119,6 +1310,11 @@ export function useMixer() {
     sinkSupported,
     toneOn,
     setToneOn,
+    antiFeedback,
+    setAntiFeedback,
+    feedbackSafe,
+    notches,
+    clearNotches,
     latencyMs,
     wakeLock,
     chooseDevice,

@@ -12,8 +12,9 @@ const TEXT = {
   error: ['bad', 'Algo deu errado com o receptor'],
 };
 
-export default function StatusBadge({ status, channelCount, dualMono, mode, online }) {
-  const [tone, text] = TEXT[status] ?? TEXT.error;
+export default function StatusBadge({ status, channelCount, dualMono, mode, online, noSignal }) {
+  const [baseTone, text] = TEXT[status] ?? TEXT.error;
+  const tone = status === 'ready' && noSignal ? 'wait' : baseTone;
   return (
     <div className={`status status--${tone}`} role="status">
       <span className="status__dot" aria-hidden="true" />
@@ -22,7 +23,9 @@ export default function StatusBadge({ status, channelCount, dualMono, mode, onli
         {status === 'ready' && (
           <span className="status__device">
             {' · '}
-            {mode === 'dual'
+            {noSignal
+              ? 'nenhum som chegando: confira o cabo e se o microfone não está no mudo do Windows'
+              : mode === 'dual'
               ? online >= 2
                 ? '2 receptores, 2 canais separados'
                 : `${online} de 2 receptores no ar`

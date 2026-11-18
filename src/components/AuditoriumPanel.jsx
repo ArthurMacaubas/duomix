@@ -9,6 +9,9 @@ const CHECKLIST = [
   'Notebook na tomada. Se aparecer zumbido, use um isolador de ruído P2.',
 ];
 
+// Frequência exata (ex.: "1.207 Hz"), para cortes vizinhos não parecerem repetidos.
+const hz = (f) => `${Math.round(f).toLocaleString('pt-BR')} Hz`;
+
 function latencyInfo(ms, anyIsolate) {
   if (ms == null) return { tone: 'idle', label: '—', hint: 'Conecte o receptor para medir.' };
   if (ms <= 30) return { tone: 'ok', label: `~${ms} ms`, hint: 'Ótimo: quem fala não percebe o atraso.' };
@@ -103,6 +106,47 @@ export default function AuditoriumPanel({ mixer }) {
               : 'Este navegador não segurou a tela. Desative a suspensão do Windows antes do evento.'}
           </p>
         </div>
+      </div>
+
+      <div className={`aud__fb${mixer.antiFeedback ? ' is-on' : ''}`}>
+        <div className="aud__fb-head">
+          <div>
+            <span className="aud__label">Anti-microfonia</span>
+            <p className="aud__fb-title">
+              {mixer.antiFeedback ? (mixer.notches.length ? '🛡️ Cortando o apito' : '🛡️ Vigiando') : 'Desligado'}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={mixer.antiFeedback}
+            aria-label="Anti-microfonia"
+            className={`switch${mixer.antiFeedback ? ' is-on' : ''}`}
+            onClick={() => mixer.setAntiFeedback(!mixer.antiFeedback)}
+          >
+            <span className="switch__knob" />
+          </button>
+        </div>
+        <p className="aud__hint is-important">
+          {mixer.antiFeedback
+            ? 'Menor atraso possível: "Nivelar voz" e "Isolar voz" ficam pausados aqui. Se uma frequência começar a apitar, ela é cortada sozinha.'
+            : 'Desligado: o som passa por todos os recursos da mesa, com mais atraso e mais risco de microfonia.'}
+        </p>
+        {mixer.antiFeedback && mixer.notches.length > 0 && (
+          <div className="aud__notches">
+            <span className="aud__hint">Frequências cortadas:</span>
+            <ul>
+              {mixer.notches.map((nt) => (
+                <li key={nt.freq}>
+                  {hz(nt.freq)} <small>{nt.gainDb} dB</small>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="btn-secondary" onClick={mixer.clearNotches}>
+              Limpar cortes
+            </button>
+          </div>
+        )}
       </div>
 
       <details className="aud__check">

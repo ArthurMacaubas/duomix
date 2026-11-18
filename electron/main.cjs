@@ -167,6 +167,7 @@ function runSelfTest(w) {
       await wait(4000);
       result.title = await js('document.title');
       result.desktop = await js('Boolean(window.duomix && window.duomix.desktop)');
+      await wait(2500); // dá tempo para as detecções (estéreo falso, sem sinal)
       result.status = await js(`document.querySelector('.status')?.textContent`);
       result.sources = await js(`[...document.querySelectorAll('.strip__source')].map((e) => e.textContent)`);
       result.sinkSupported = await js(`typeof AudioContext.prototype.setSinkId === 'function'`);

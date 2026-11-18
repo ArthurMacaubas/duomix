@@ -57,6 +57,19 @@ Ligue o botão **Modo Auditório** no topo. Ele:
 - mantém a **tela sempre ligada** para o PC não dormir no meio do evento;
 - traz um **checklist da ligação**.
 
+### Anti-microfonia (ligado por padrão no Modo Auditório)
+
+Nenhum programa consegue impedir 100% que o microfone capte o som da caixa na mesma sala, mas dá para diminuir muito:
+
+- **Caminho direto:** no Modo Auditório, "Nivelar voz" e "Isolar voz" ficam pausados. Eles atrasam o som (mais eco)
+  e o "Nivelar voz" sobe o som da caixa entre uma frase e outra, o que alimenta a microfonia.
+- **Supressor automático:** quando uma frequência começa a apitar (um pico único e parado), um filtro bem estreito
+  corta só ela; se continuar, corta mais fundo (até 8 frequências). A voz não é cortada, porque tem vários
+  harmônicos ao mesmo tempo. O painel mostra as frequências cortadas e tem um botão **Limpar cortes**.
+
+Mesmo assim: microfone perto da boca, caixas na frente de quem fala (nunca atrás nem apontadas para o palco) e
+volume final ajustado na mesa do auditório.
+
 Dicas: use uma entrada de **linha/AUX** da mesa (não a de microfone), com o **phantom power desligado**;
 deixe o Windows em **Não incomodar** para notificações não saírem nas caixas; se aparecer zumbido com o
 notebook na tomada, use um **isolador de ruído P2**.

@@ -46,6 +46,7 @@ export default function ChannelStrip({
   dualMono,
   source,
   mode,
+  paPaused,
   ducked,
   duckedBy,
   mutedTalking,
@@ -132,7 +133,9 @@ export default function ChannelStrip({
           <span className="iso-btn__state">{cfg.isolate ? 'Ligado' : 'Desligado'}</span>
         </button>
         <span id={`iso-help-${n}`} className="strip__ambient">
-          {!cfg.isolate
+          {cfg.isolate && paPaused
+            ? '⏸ Pausado no Modo Auditório (anti-microfonia)'
+            : !cfg.isolate
             ? 'IA que deixa só a voz, até enquanto a pessoa fala'
             : isolator.status === 'loading'
               ? 'Carregando a IA…'
@@ -156,7 +159,9 @@ export default function ChannelStrip({
           onChange={(leveler) => onChange({ leveler })}
           disabled={disabled}
         />
-        <span className="strip__ambient strip__leveler-help">Sobe quem fala baixo e segura quem grita</span>
+        <span className={`strip__ambient strip__leveler-help${paPaused && cfg.leveler ? ' is-paused' : ''}`}>
+          {paPaused && cfg.leveler ? '⏸ Pausado no Modo Auditório (anti-microfonia)' : 'Sobe quem fala baixo e segura quem grita'}
+        </span>
       </div>
 
       <div className="strip__noise">

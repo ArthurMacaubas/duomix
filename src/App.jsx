@@ -113,6 +113,7 @@ export default function App() {
             dualMono={mixer.dualMono}
             mode={mixer.mode}
             online={mixer.sources.filter((x) => x?.online).length}
+            noSignal={mixer.noSignal}
           />
           {!ready && !['idle', 'requesting'].includes(mixer.status) && (
             <ProblemBanner status={mixer.status} onRetry={mixer.retry} />
@@ -141,6 +142,7 @@ export default function App() {
                 dualMono={mixer.dualMono}
                 source={mixer.sources[i]}
                 mode={mixer.mode}
+                paPaused={mixer.feedbackSafe}
                 calibrating={mixer.calibrating}
                 isolator={mixer.isolator}
                 ducked={mixer.ducked[i]}

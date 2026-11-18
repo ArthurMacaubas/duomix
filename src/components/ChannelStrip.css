@@ -507,3 +507,10 @@
     grid-column: 1 / -1;
   }
 }
+
+/* Aviso de pausa no Modo Auditório: aparece em qualquer largura. */
+.strip__leveler-help.is-paused {
+  display: block;
+  margin-top: -6px;
+  color: var(--cyan);
+}
