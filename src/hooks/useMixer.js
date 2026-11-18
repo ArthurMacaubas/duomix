@@ -17,6 +17,9 @@ import rnnoiseSimdWasmUrl from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wa
  *                                                                                                                         \-> fone
  *
  * Em modo mono o receptor já mistura os dois: só o canal 1 recebe som.
+ * "Estéreo falso": muitas entradas (ex.: a entrada de microfone P2 do PC) dizem ter 2 canais,
+ * mas mandam o mesmo som nos dois lados. A mesa compara esquerdo e direito o tempo todo e,
+ * se forem iguais, passa a tratar como mono (e avisa), em vez de fingir que separou.
  *
  * Depois do portão, cada canal ainda tem:
  *   - Nivelar voz: compressor que sobe quem fala baixo e segura quem grita.
@@ -73,6 +76,13 @@ const DUCK_HOLD_MS = 350;
 const MUTED_TALK_MS = 600;
 const MUTED_TALK_MIN_DB = -48;
 const MUTED_TALK_CLEAR_MS = 1500;
+
+// Estéreo falso: lados com correlação >= 0.97 e mesmo nível por 1,5 s = mesmo som duplicado.
+const DUAL_MONO_CORR = 0.97;
+const DUAL_MONO_LEVEL_DB = 1.5;
+const DUAL_MONO_ON_MS = 1500;
+const DUAL_MONO_OFF_MS = 1000;
+const DUAL_MONO_SILENCE_DB = -85; // abaixo disso não dá para saber (silêncio digital)
 
 // Modo Auditório
 const OUTPUT_FADE_IN_S = 1.5; // subida suave da saída ao ligar
@@ -162,6 +172,8 @@ export function useMixer() {
   const [deviceLabel, setDeviceLabel] = useState('');
   const [sampleRate, setSampleRate] = useState(null);
   const [channelCount, setChannelCount] = useState(2);
+  // Os dois lados chegam iguais (estéreo falso)?
+  const [dualMono, setDualMono] = useState(false);
   const [channels, setChannels] = useState(loadChannels);
   const [master, setMasterState] = useState(() => ({
     volume: readStored('masterVolume', 50),
@@ -222,11 +234,15 @@ export function useMixer() {
     })),
   );
   const masterTalkRef = useRef(false);
+  const dualRef = useRef({ sLL: 0, sRR: 0, sLR: 0, same: false, since: 0 });
+  const dualMonoRef = useRef(false);
   const masterProcRef = useRef({ level: 0 });
 
   statusRef.current = status;
   channelsRef.current = channels;
-  channelCountRef.current = channelCount;
+  // Canais que de fato chegam separados: estéreo falso conta como 1.
+  const effectiveChannels = dualMono ? 1 : channelCount;
+  channelCountRef.current = effectiveChannels;
   masterRef.current = master;
 
   const refreshDevices = useCallback(async () => {
@@ -265,6 +281,12 @@ export function useMixer() {
       ctx = new AudioContext({ latencyHint: 'interactive' });
     }
     const splitter = ctx.createChannelSplitter(CHANNELS);
+    // Medidores "crus" de cada lado, antes de qualquer tratamento, para detectar estéreo falso.
+    const rawL = ctx.createAnalyser();
+    const rawR = ctx.createAnalyser();
+    rawL.fftSize = rawR.fftSize = 1024;
+    splitter.connect(rawL, 0);
+    splitter.connect(rawR, 1);
     const sum = ctx.createGain();
     const masterGain = ctx.createGain();
     const masterMute = ctx.createGain();
@@ -325,7 +347,7 @@ export function useMixer() {
     out.connect(ctx.destination);
 
     ctxRef.current = ctx;
-    nodesRef.current = { splitter, ch, sum, masterGain, limiter, masterMute, masterAnalyser, out };
+    nodesRef.current = { splitter, rawL, rawR, ch, sum, masterGain, limiter, masterMute, masterAnalyser, out };
     outputOnRef.current = false;
     toneRef.current = null;
     setSampleRate(ctx.sampleRate);
@@ -443,6 +465,9 @@ export function useMixer() {
       const settings = track.getSettings?.() ?? {};
       inputLatencyRef.current = Number.isFinite(settings.latency) ? settings.latency : 0;
       setChannelCount(settings.channelCount === 1 ? 1 : 2);
+      setDualMono(false);
+      dualMonoRef.current = false;
+      dualRef.current = { sLL: 0, sRR: 0, sLR: 0, same: false, since: 0 };
       setDeviceLabel(track.label || 'Receptor');
       if (settings.deviceId) setDeviceId(settings.deviceId);
       setStatus('ready');
@@ -497,11 +522,50 @@ export function useMixer() {
 
     let lastTalk = { ch: new Array(CHANNELS).fill(false), master: false };
     const pre = new Array(CHANNELS).fill(-120);
+    const rawBufL = new Float32Array(1024);
+    const rawBufR = new Float32Array(1024);
 
     const process = () => {
       const nodes = nodesRef.current;
       if (!nodes || !streamRef.current) return;
       const now = performance.now();
+
+      // Estéreo falso: compara os dois lados crus (média móvel de ~0,5 s).
+      if (nodes.rawL && nodes.rawR) {
+        nodes.rawL.getFloatTimeDomainData(rawBufL);
+        nodes.rawR.getFloatTimeDomainData(rawBufR);
+        let ll = 0;
+        let rr = 0;
+        let lr = 0;
+        for (let k = 0; k < rawBufL.length; k++) {
+          ll += rawBufL[k] * rawBufL[k];
+          rr += rawBufR[k] * rawBufR[k];
+          lr += rawBufL[k] * rawBufR[k];
+        }
+        const d = dualRef.current;
+        d.sLL = d.sLL * 0.9 + ll;
+        d.sRR = d.sRR * 0.9 + rr;
+        d.sLR = d.sLR * 0.9 + lr;
+        const dbL = 10 * Math.log10(ll / rawBufL.length + 1e-20);
+        const dbR = 10 * Math.log10(rr / rawBufR.length + 1e-20);
+        if (dbL > DUAL_MONO_SILENCE_DB && dbR > DUAL_MONO_SILENCE_DB && d.sLL > 0 && d.sRR > 0) {
+          const corr = d.sLR / Math.sqrt(d.sLL * d.sRR);
+          const same = corr >= DUAL_MONO_CORR && Math.abs(dbL - dbR) <= DUAL_MONO_LEVEL_DB;
+          if (same !== d.same) {
+            d.same = same;
+            d.since = now;
+          }
+          // Só muda de estado depois de um tempo firme no novo estado (evita piscar).
+          let wantDual = dualMonoRef.current;
+          if (same && now - d.since >= DUAL_MONO_ON_MS) wantDual = true;
+          if (!same && now - d.since >= DUAL_MONO_OFF_MS) wantDual = false;
+          if (wantDual !== dualMonoRef.current) {
+            dualMonoRef.current = wantDual;
+            setDualMono(wantDual);
+          }
+        }
+      }
+
       const active = channelCountRef.current;
       // No app de computador o processamento continua mesmo minimizado (sem congelamento).
       if (document.hidden && !IS_DESKTOP_APP) {
@@ -844,7 +908,9 @@ export function useMixer() {
     deviceId,
     deviceLabel,
     sampleRate,
-    channelCount,
+    channelCount: effectiveChannels,
+    reportedChannels: channelCount,
+    dualMono,
     channels,
     master,
     meters,

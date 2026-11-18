@@ -35,6 +35,7 @@ export default function ChannelStrip({
   inactive,
   calibrating,
   isolator,
+  dualMono,
   ducked,
   duckedBy,
   mutedTalking,
@@ -175,8 +176,19 @@ export default function ChannelStrip({
 
       {inactive && ready && (
         <p className="strip__mono">
-          Seu receptor está mandando os dois microfones juntos (modo mono). Eles aparecem misturados no canal 1. Para
-          separar, coloque o receptor em modo estéreo.
+          {dualMono ? (
+            <>
+              <strong>Os dois lados chegam iguais.</strong> A entrada usada (por exemplo, a entrada de microfone P2 do
+              PC) ou o receptor está em mono, então os dois microfones já chegam misturados no canal 1. Para separar, use
+              uma entrada estéreo (interface de áudio USB) com o receptor em modo estéreo, ou um receptor para cada
+              microfone.
+            </>
+          ) : (
+            <>
+              Seu receptor está mandando os dois microfones juntos (modo mono). Eles aparecem misturados no canal 1.
+              Para separar, coloque o receptor em modo estéreo.
+            </>
+          )}
         </p>
       )}
     </section>

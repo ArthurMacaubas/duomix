@@ -11,7 +11,7 @@ botões amarelos, LEDs ciano e o friso creme do estojo.
 
 ## ⬇️ Baixar e instalar (Windows)
 
-1. Vá em **[Releases](https://github.com/ArthurMacaubas/duomix/releases/latest)** e baixe `DuoMix-Setup-1.0.0.exe`.
+1. Vá em **[Releases](https://github.com/ArthurMacaubas/duomix/releases/latest)** e baixe o `DuoMix-Setup-<versão>.exe` mais recente.
 2. Abra o arquivo e siga o instalador (dá para escolher a pasta). Ele cria atalhos na área de trabalho e no menu Iniciar.
 3. O Windows pode mostrar **"O Windows protegeu o computador"**, porque o instalador ainda não tem assinatura digital
    (certificado pago). Clique em **Mais informações → Executar assim mesmo**.
@@ -79,6 +79,19 @@ npm run app    # abre o DuoMix como app (Electron)
 npm run dist   # gera o instalador em release/DuoMix-Setup-<versão>.exe
 npm run icon   # refaz build/icon.png a partir de public/logo.svg
 ```
+
+## Por que meus dois microfones não separam?
+
+O DuoMix só consegue separar os microfones se eles **chegarem separados** no PC: microfone 1 no lado esquerdo
+e microfone 2 no direito. Se os dois lados chegarem iguais, a mesa avisa **"os dois lados chegam iguais"** e mostra
+tudo no canal 1.
+
+| Como o kit está ligado | Separa? |
+|---|---|
+| Receptor de câmera (P2) na **entrada de microfone** do PC | ❌ Essa entrada é mono: os dois chegam misturados |
+| Receptor USB-C (versão celular) no PC | ❌ Segundo os manuais, só faz mono |
+| Receptor de câmera em **modo estéreo** (LEDs azuis) numa **interface de áudio USB com entrada estéreo** | ✅ |
+| **Um receptor para cada microfone** (dois kits) | ✅ (precisa do suporte a dois receptores, ainda não feito) |
 
 ## Receptor em estéreo
 

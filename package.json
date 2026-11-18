@@ -2,7 +2,7 @@
   "name": "duomix",
   "productName": "DuoMix",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "DuoMix: mesa de som para dois microfones sem fio.",
   "author": "Arthur Macaúbas",
   "homepage": "https://github.com/ArthurMacaubas/duomix",

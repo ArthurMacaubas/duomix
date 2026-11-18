@@ -52,7 +52,15 @@ export default function SettingsPanel({ mixer, onClose, onRestartSetup }) {
             <dt>Receptor em uso</dt>
             <dd>{mixer.deviceLabel || '—'}</dd>
             <dt>Modo do receptor</dt>
-            <dd>{ready ? (mixer.channelCount === 2 ? 'Estéreo (2 canais separados)' : 'Mono (microfones juntos)') : '—'}</dd>
+            <dd>
+              {!ready
+                ? '—'
+                : mixer.dualMono
+                  ? 'Estéreo falso: os dois lados chegam iguais (microfones juntos)'
+                  : mixer.channelCount === 2
+                    ? 'Estéreo (2 canais separados)'
+                    : 'Mono (microfones juntos)'}
+            </dd>
             <dt>Taxa de amostragem</dt>
             <dd>{mixer.sampleRate ? `${(mixer.sampleRate / 1000).toFixed(1)} kHz` : '—'}</dd>
             {mixer.channels.map((c, i) => (

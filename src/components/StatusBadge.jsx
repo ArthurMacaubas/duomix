@@ -12,7 +12,7 @@ const TEXT = {
   error: ['bad', 'Algo deu errado com o receptor'],
 };
 
-export default function StatusBadge({ status, channelCount }) {
+export default function StatusBadge({ status, channelCount, dualMono }) {
   const [tone, text] = TEXT[status] ?? TEXT.error;
   return (
     <div className={`status status--${tone}`} role="status">
@@ -20,7 +20,10 @@ export default function StatusBadge({ status, channelCount }) {
       <span>
         {text}
         {status === 'ready' && (
-          <span className="status__device"> · {channelCount === 2 ? '2 canais (estéreo)' : '1 canal (mono)'}</span>
+          <span className="status__device">
+            {' · '}
+            {dualMono ? '1 canal (os dois lados chegam iguais)' : channelCount === 2 ? '2 canais separados' : '1 canal (mono)'}
+          </span>
         )}
       </span>
     </div>
