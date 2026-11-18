@@ -107,7 +107,13 @@ export default function App() {
 
       <main className="app__main">
         <div className="app__top">
-          <StatusBadge status={mixer.status} channelCount={mixer.channelCount} dualMono={mixer.dualMono} />
+          <StatusBadge
+            status={mixer.status}
+            channelCount={mixer.channelCount}
+            dualMono={mixer.dualMono}
+            mode={mixer.mode}
+            online={mixer.sources.filter((x) => x?.online).length}
+          />
           {!ready && !['idle', 'requesting'].includes(mixer.status) && (
             <ProblemBanner status={mixer.status} onRetry={mixer.retry} />
           )}
@@ -131,8 +137,10 @@ export default function App() {
                 floorDb={mixer.floors[i]}
                 gateClosed={mixer.gates[i]}
                 ready={ready}
-                inactive={i >= mixer.channelCount}
+                inactive={i >= mixer.channelCount || mixer.sources[i]?.online === false}
                 dualMono={mixer.dualMono}
+                source={mixer.sources[i]}
+                mode={mixer.mode}
                 calibrating={mixer.calibrating}
                 isolator={mixer.isolator}
                 ducked={mixer.ducked[i]}

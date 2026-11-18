@@ -5,6 +5,21 @@ import './Overlay.css';
 
 const db = (v) => `${sliderToDb(v) > 0 ? '+' : ''}${sliderToDb(v).toFixed(1)} dB`;
 
+/** Lista de receptores para escolher: "Padrão do Windows" + os aparelhos de verdade. */
+function DeviceSelect({ id, value, devices, onChange, labelledBy }) {
+  const real = devices.filter((d) => d.id !== 'default' && d.id !== 'communications');
+  return (
+    <select id={id} className="field__select" value={value} aria-labelledby={labelledBy} onChange={(e) => onChange(e.target.value)}>
+      <option value="">Padrão do Windows</option>
+      {real.map((d) => (
+        <option key={d.id} value={d.id}>
+          {d.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** Ajustes: só o essencial à vista; o técnico fica escondido em "Opções avançadas". */
 export default function SettingsPanel({ mixer, onClose, onRestartSetup }) {
   const closeRef = useRef(null);
@@ -29,26 +44,79 @@ export default function SettingsPanel({ mixer, onClose, onRestartSetup }) {
           </button>
         </div>
 
-        <label className="field">
-          <span className="field__label">Qual receptor usar</span>
-          <select
-            className="field__select"
-            value={mixer.deviceId}
-            onChange={(e) => mixer.chooseDevice(e.target.value)}
-            disabled={mixer.devices.length === 0}
-          >
-            {mixer.devices.length === 0 && <option value="">Nenhum receptor encontrado</option>}
-            {mixer.devices.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.label}
-              </option>
+        <fieldset className="conn">
+          <legend className="field__label">Como os microfones estão ligados</legend>
+          <label className={`conn__opt${mixer.mode === 'single' ? ' is-on' : ''}`}>
+            <input
+              type="radio"
+              name="conn-mode"
+              value="single"
+              checked={mixer.mode === 'single'}
+              onChange={() => mixer.setMode('single')}
+            />
+            <span>
+              <strong>Um receptor com os dois microfones</strong>
+              <small>TX1 no lado esquerdo, TX2 no direito (receptor em modo estéreo).</small>
+            </span>
+          </label>
+          <label className={`conn__opt${mixer.mode === 'dual' ? ' is-on' : ''}`}>
+            <input
+              type="radio"
+              name="conn-mode"
+              value="dual"
+              checked={mixer.mode === 'dual'}
+              onChange={() => mixer.setMode('dual')}
+            />
+            <span>
+              <strong>Um receptor para cada microfone</strong>
+              <small>Dois kits: cada pessoa num receptor. Separa mesmo com receptores mono.</small>
+            </span>
+          </label>
+        </fieldset>
+
+        {mixer.mode === 'single' ? (
+          <div className="field">
+            <span className="field__label" id="dev-single">
+              Qual receptor usar
+            </span>
+            <DeviceSelect
+              id="dev-single-select"
+              labelledBy="dev-single"
+              value={mixer.deviceId}
+              devices={mixer.devices}
+              onChange={mixer.chooseDevice}
+            />
+          </div>
+        ) : (
+          <>
+            {mixer.channels.map((c, i) => (
+              <div className="field" key={i}>
+                <span className="field__label" id={`dev-dual-${i}`}>
+                  Receptor do TX{i + 1} · {c.name}
+                </span>
+                <DeviceSelect
+                  id={`dev-dual-select-${i}`}
+                  labelledBy={`dev-dual-${i}`}
+                  value={mixer.dualDevices[i]}
+                  devices={mixer.devices}
+                  onChange={(id) => mixer.setDualDevice(i, id)}
+                />
+              </div>
             ))}
-          </select>
-        </label>
+            {mixer.dualDevices[0] === mixer.dualDevices[1] && (
+              <p className="conn__warn" role="status">
+                Os dois microfones estão no mesmo receptor. Escolha um receptor diferente para cada um, ou use "Um
+                receptor com os dois microfones".
+              </p>
+            )}
+          </>
+        )}
 
         <details className="advanced">
           <summary>Opções avançadas</summary>
           <dl className="advanced__list">
+            <dt>Ligação</dt>
+            <dd>{mixer.mode === 'dual' ? 'Um receptor para cada microfone' : 'Um receptor com os dois microfones'}</dd>
             <dt>Receptor em uso</dt>
             <dd>{mixer.deviceLabel || '—'}</dd>
             <dt>Modo do receptor</dt>

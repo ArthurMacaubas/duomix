@@ -17,6 +17,11 @@ import rnnoiseSimdWasmUrl from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wa
  *                                                                                                                         \-> fone
  *
  * Em modo mono o receptor já mistura os dois: só o canal 1 recebe som.
+ *
+ * Dois modos de ligação:
+ *   - "single": um receptor com os dois microfones (TX1 = lado esquerdo, TX2 = lado direito).
+ *   - "dual":   um receptor para cada microfone (cada canal usa os dois lados do seu receptor somados).
+ * Cada receptor é aberto à parte. Se um cair, o outro continua; quando ele volta, a mesa reconecta.
  * "Estéreo falso": muitas entradas (ex.: a entrada de microfone P2 do PC) dizem ter 2 canais,
  * mas mandam o mesmo som nos dois lados. A mesa compara esquerdo e direito o tempo todo e,
  * se forem iguais, passa a tratar como mono (e avisa), em vez de fingir que separou.
@@ -158,6 +163,13 @@ function errorToStatus(err) {
   }
 }
 
+/** Para cada canal: de qual receptor (chave) e de qual lado ele puxa o som. */
+function routesFor(mode, singleKey, dualKeys) {
+  return Array.from({ length: CHANNELS }, (_, i) =>
+    mode === 'dual' ? { key: dualKeys[i] ?? '', side: 'mix' } : { key: singleKey, side: i === 0 ? 'left' : 'right' },
+  );
+}
+
 const emptyMeters = () => ({
   ch: Array.from({ length: CHANNELS }, () => ({ level: 0, voice: 0, clip: false })),
   master: 0,
@@ -170,6 +182,14 @@ export function useMixer() {
   const [devices, setDevices] = useState([]);
   const [deviceId, setDeviceId] = useState(() => readStored('deviceId', ''));
   const [deviceLabel, setDeviceLabel] = useState('');
+  // Ligação: 'single' (um receptor, dois lados) ou 'dual' (um receptor por microfone).
+  const [mode, setModeState] = useState(() => (readStored('mode', 'single') === 'dual' ? 'dual' : 'single'));
+  const [dualDevices, setDualDevices] = useState(() => {
+    const v = readStored('dualDevices', null);
+    return Array.isArray(v) && v.length === CHANNELS ? v.map((x) => (typeof x === 'string' ? x : '')) : ['', ''];
+  });
+  // De onde cada canal está puxando o som agora: { key, label, side, online, reason }.
+  const [sources, setSources] = useState(() => new Array(CHANNELS).fill(null));
   const [sampleRate, setSampleRate] = useState(null);
   const [channelCount, setChannelCount] = useState(2);
   // Os dois lados chegam iguais (estéreo falso)?
@@ -205,8 +225,17 @@ export function useMixer() {
   const ctxRef = useRef(null);
   const isoLoadRef = useRef(null);
   const nodesRef = useRef(null);
-  const sourceRef = useRef(null);
-  const streamRef = useRef(null);
+  // Receptores abertos: chave (deviceId; '' = padrão do Windows) -> conexão.
+  const devicesRef = useRef(new Map());
+  // Ligação atual de cada canal: { entry, side }.
+  const routeRef = useRef(new Array(CHANNELS).fill(null));
+  // Há pelo menos um receptor aberto?
+  const liveRef = useRef(false);
+  const onLostRef = useRef(null);
+  const syncRef = useRef(null);
+  const devicesListRef = useRef([]);
+  // Receptores que caíram enquanto estavam em uso (para avisar "desconectado", não "não achei").
+  const lostKeysRef = useRef(new Set());
   const inputLatencyRef = useRef(0);
   const toneRef = useRef(null);
   const outputOnRef = useRef(false);
@@ -244,6 +273,12 @@ export function useMixer() {
   const effectiveChannels = dualMono ? 1 : channelCount;
   channelCountRef.current = effectiveChannels;
   masterRef.current = master;
+  const modeRef = useRef(mode);
+  const singleKeyRef = useRef(deviceId);
+  const dualDevicesRef = useRef(dualDevices);
+  modeRef.current = mode;
+  singleKeyRef.current = deviceId;
+  dualDevicesRef.current = dualDevices;
 
   const refreshDevices = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return [];
@@ -252,6 +287,7 @@ export function useMixer() {
       .filter((d) => d.kind === 'audioinput')
       .map((d, i) => ({ id: d.deviceId, label: d.label || `Receptor ${i + 1}` }));
     setDevices(inputs);
+    devicesListRef.current = inputs;
     setOutputDevices(
       list
         .filter((d) => d.kind === 'audiooutput' && d.deviceId !== 'default' && d.deviceId !== 'communications')
@@ -260,15 +296,26 @@ export function useMixer() {
     return inputs;
   }, []);
 
-  const stopStream = useCallback(() => {
-    sourceRef.current?.disconnect();
-    sourceRef.current = null;
-    streamRef.current?.getTracks().forEach((t) => {
+  const closeEntry = useCallback((e) => {
+    try {
+      e.source.disconnect();
+      e.splitter.disconnect();
+      e.mono.disconnect();
+    } catch {
+      /* já desligado */
+    }
+    e.stream.getTracks().forEach((t) => {
       t.onended = null;
       t.stop();
     });
-    streamRef.current = null;
   }, []);
+
+  const closeAll = useCallback(() => {
+    for (const e of devicesRef.current.values()) closeEntry(e);
+    devicesRef.current.clear();
+    routeRef.current = new Array(CHANNELS).fill(null);
+    liveRef.current = false;
+  }, [closeEntry]);
 
   const ensureGraph = useCallback(() => {
     if (ctxRef.current) return ctxRef.current;
@@ -280,13 +327,6 @@ export function useMixer() {
     } catch {
       ctx = new AudioContext({ latencyHint: 'interactive' });
     }
-    const splitter = ctx.createChannelSplitter(CHANNELS);
-    // Medidores "crus" de cada lado, antes de qualquer tratamento, para detectar estéreo falso.
-    const rawL = ctx.createAnalyser();
-    const rawR = ctx.createAnalyser();
-    rawL.fftSize = rawR.fftSize = 1024;
-    splitter.connect(rawL, 0);
-    splitter.connect(rawR, 1);
     const sum = ctx.createGain();
     const masterGain = ctx.createGain();
     const masterMute = ctx.createGain();
@@ -301,7 +341,11 @@ export function useMixer() {
     limiter.attack.value = LIMITER.attack;
     limiter.release.value = LIMITER.release;
 
-    const ch = channelsRef.current.map((c, i) => {
+    const ch = channelsRef.current.map((c) => {
+      // Entrada do canal: recebe o lado (ou a mistura) do receptor escolhido.
+      const input = ctx.createGain();
+      input.channelCount = 1;
+      input.channelCountMode = 'explicit';
       const hp = ctx.createBiquadFilter();
       hp.type = 'highpass';
       hp.Q.value = 0.7;
@@ -324,7 +368,7 @@ export function useMixer() {
       const wet = ctx.createGain();
       wet.gain.value = 0;
 
-      splitter.connect(hp, i);
+      input.connect(hp);
       hp.connect(dry);
       dry.connect(fader);
       wet.connect(fader);
@@ -336,7 +380,7 @@ export function useMixer() {
       duck.connect(mute);
       mute.connect(analyser);
       mute.connect(sum);
-      return { hp, dry, wet, iso: null, fader, detector, gate, comp, makeup, duck, mute, analyser };
+      return { input, hp, dry, wet, iso: null, fader, detector, gate, comp, makeup, duck, mute, analyser };
     });
 
     sum.connect(masterGain);
@@ -347,7 +391,7 @@ export function useMixer() {
     out.connect(ctx.destination);
 
     ctxRef.current = ctx;
-    nodesRef.current = { splitter, rawL, rawR, ch, sum, masterGain, limiter, masterMute, masterAnalyser, out };
+    nodesRef.current = { ch, sum, masterGain, limiter, masterMute, masterAnalyser, out };
     outputOnRef.current = false;
     toneRef.current = null;
     setSampleRate(ctx.sampleRate);
@@ -405,83 +449,194 @@ export function useMixer() {
     return job;
   }, []);
 
-  const start = useCallback(
-    async (id = deviceId) => {
-      if (!navigator.mediaDevices?.getUserMedia || typeof AudioContext === 'undefined') {
-        setStatus('unsupported');
-        return;
+  /** Abre um receptor e prepara os pontos de onde os canais puxam o som (esquerdo, direito, mistura). */
+  const openDevice = useCallback(async (key) => {
+    // Processamentos do navegador desligados: eles juntam o som em mono
+    // e impediriam de separar os dois microfones.
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        ...(key ? { deviceId: { exact: key } } : {}),
+        channelCount: { ideal: 2 },
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+    });
+    const ctx = ctxRef.current;
+    const track = stream.getAudioTracks()[0];
+    const source = ctx.createMediaStreamSource(stream);
+    const splitter = ctx.createChannelSplitter(2);
+    // "Mistura": os dois lados somados, para quem usa um receptor por microfone.
+    const mono = ctx.createGain();
+    mono.channelCount = 1;
+    mono.channelCountMode = 'explicit';
+    mono.channelInterpretation = 'speakers';
+    // Medidores crus de cada lado, para detectar estéreo falso.
+    const rawL = ctx.createAnalyser();
+    const rawR = ctx.createAnalyser();
+    rawL.fftSize = rawR.fftSize = 1024;
+    source.connect(splitter);
+    source.connect(mono);
+    splitter.connect(rawL, 0);
+    splitter.connect(rawR, 1);
+    const settings = track.getSettings?.() ?? {};
+    const entry = {
+      key,
+      stream,
+      source,
+      splitter,
+      mono,
+      rawL,
+      rawR,
+      label: track.label || 'Receptor',
+      channelCount: settings.channelCount === 1 ? 1 : 2,
+      latency: Number.isFinite(settings.latency) ? settings.latency : 0,
+      ended: false,
+    };
+    track.onended = () => {
+      entry.ended = true;
+      onLostRef.current?.(entry);
+    };
+    return entry;
+  }, []);
+
+  /** Liga a entrada de cada canal ao receptor/lado escolhido e conta quem está no ar. */
+  const applyRouting = useCallback((routes, errors) => {
+    const nodes = nodesRef.current;
+    if (!nodes) return [];
+    const next = routes.map((r, i) => {
+      const input = nodes.ch[i].input;
+      const entry = devicesRef.current.get(r.key);
+      const usable = entry && !entry.ended ? entry : null;
+      const prev = routeRef.current[i];
+      if (prev && (prev.entry !== usable || prev.side !== r.side)) {
+        try {
+          if (prev.side === 'mix') prev.entry.mono.disconnect(input);
+          else prev.entry.splitter.disconnect(input, prev.side === 'left' ? 0 : 1);
+        } catch {
+          /* já desligado */
+        }
+        routeRef.current[i] = null;
       }
-      const gen = ++genRef.current;
-      if (statusRef.current !== 'ready') setStatus('requesting');
+      if (usable && !routeRef.current[i]) {
+        if (r.side === 'mix') usable.mono.connect(input);
+        else usable.splitter.connect(input, r.side === 'left' ? 0 : 1);
+        routeRef.current[i] = { entry: usable, side: r.side };
+      }
+      return {
+        key: r.key,
+        side: r.side,
+        label: usable?.label ?? null,
+        online: Boolean(usable),
+        reason: usable ? null : errors[r.key] ?? (entry?.ended ? 'disconnected' : 'notfound'),
+      };
+    });
+    setSources(next);
+    return next;
+  }, []);
 
-      // Processamentos do navegador desligados: eles juntam o som em mono
-      // e impediriam de separar os dois microfones.
-      const constraints = (withId) => ({
-        audio: {
-          ...(withId && id ? { deviceId: { exact: id } } : {}),
-          channelCount: { ideal: 2 },
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-      });
+  /** Depois de abrir/fechar receptores: atualiza ligações, estado, nomes e atraso. */
+  const finish = useCallback(
+    (routes, errors) => {
+      const srcs = applyRouting(routes, errors);
+      const online = srcs.filter((x) => x.online).length;
+      liveRef.current = online > 0;
+      setStatus(online > 0 ? 'ready' : Object.values(errors)[0] ?? 'disconnected');
+      const entries = [...new Set(routes.map((r) => devicesRef.current.get(r.key)).filter((e) => e && !e.ended))];
+      if (modeRef.current === 'single') {
+        setChannelCount(entries[0] ? entries[0].channelCount : 2);
+        setDeviceLabel(entries[0]?.label ?? '');
+      } else {
+        setChannelCount(2);
+        setDeviceLabel(entries.map((e) => e.label).join(' + '));
+      }
+      inputLatencyRef.current = Math.max(0, ...entries.map((e) => e.latency));
+    },
+    [applyRouting],
+  );
 
-      let stream;
+  /** Abre os receptores que a ligação atual pede e fecha os que sobraram. */
+  const sync = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof AudioContext === 'undefined') {
+      setStatus('unsupported');
+      return;
+    }
+    const gen = ++genRef.current;
+    const ctx = ensureGraph();
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+
+    const routes = routesFor(mode, deviceId, dualDevices);
+    const wanted = [...new Set(routes.map((r) => r.key))];
+    for (const [k, e] of devicesRef.current) {
+      if (!wanted.includes(k) || e.ended) {
+        closeEntry(e);
+        devicesRef.current.delete(k);
+      }
+    }
+    if (statusRef.current !== 'ready') setStatus('requesting');
+
+    const errors = {};
+    let reopenedSingle = false;
+    // Um receptor de cada vez: alguns drivers não gostam de abrir dois aparelhos juntos.
+    for (const k of wanted) {
+      if (devicesRef.current.has(k)) continue;
       try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints(true));
-      } catch (err) {
-        if (id && (err?.name === 'OverconstrainedError' || err?.name === 'NotFoundError')) {
-          try {
-            stream = await navigator.mediaDevices.getUserMedia(constraints(false));
-          } catch (err2) {
-            if (gen === genRef.current) setStatus(errorToStatus(err2));
-            return;
+        let e;
+        try {
+          e = await openDevice(k);
+        } catch (err) {
+          // O receptor salvo sumiu? No modo de um receptor, tenta o padrão do Windows.
+          if (mode === 'single' && k && (err?.name === 'OverconstrainedError' || err?.name === 'NotFoundError')) {
+            e = await openDevice('');
+          } else {
+            throw err;
           }
-        } else {
-          if (gen === genRef.current) setStatus(errorToStatus(err));
+        }
+        if (gen !== genRef.current || ctxRef.current !== ctx) {
+          closeEntry(e);
           return;
         }
+        devicesRef.current.set(k, e);
+        lostKeysRef.current.delete(k);
+        if (mode === 'single') reopenedSingle = true;
+      } catch (err) {
+        if (gen !== genRef.current) return;
+        const reason = errorToStatus(err);
+        errors[k] = reason === 'notfound' && lostKeysRef.current.has(k) ? 'disconnected' : reason;
       }
+    }
+    if (gen !== genRef.current) return;
 
-      if (gen !== genRef.current) {
-        stream.getTracks().forEach((t) => t.stop());
-        return;
-      }
-
-      stopStream();
-      const ctx = ensureGraph();
-      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-
-      const track = stream.getAudioTracks()[0];
-      track.onended = () => {
-        if (streamRef.current === stream) setStatus('disconnected');
-      };
-
-      const source = ctx.createMediaStreamSource(stream);
-      source.connect(nodesRef.current.splitter);
-      sourceRef.current = source;
-      streamRef.current = stream;
-
-      const settings = track.getSettings?.() ?? {};
-      inputLatencyRef.current = Number.isFinite(settings.latency) ? settings.latency : 0;
-      setChannelCount(settings.channelCount === 1 ? 1 : 2);
+    if (reopenedSingle) {
       setDualMono(false);
       dualMonoRef.current = false;
       dualRef.current = { sLL: 0, sRR: 0, sLR: 0, same: false, since: 0 };
-      setDeviceLabel(track.label || 'Receptor');
-      if (settings.deviceId) setDeviceId(settings.deviceId);
-      setStatus('ready');
-      refreshDevices();
-    },
-    [deviceId, ensureGraph, refreshDevices, stopStream],
-  );
+    }
+    finish(routes, errors);
+    refreshDevices();
+  }, [mode, deviceId, dualDevices, ensureGraph, openDevice, closeEntry, finish, refreshDevices]);
+  syncRef.current = sync;
 
-  // Liga a mesa ao abrir o app e desliga tudo ao fechar.
+  // Um receptor caiu: tira ele da mesa sem parar o outro.
+  onLostRef.current = (entry) => {
+    lostKeysRef.current.add(entry.key);
+    if (devicesRef.current.get(entry.key) === entry) {
+      devicesRef.current.delete(entry.key);
+      closeEntry(entry);
+    }
+    finish(routesFor(modeRef.current, singleKeyRef.current, dualDevicesRef.current), { [entry.key]: 'disconnected' });
+  };
+
+  // Abre (ou troca) os receptores sempre que a ligação muda.
   useEffect(() => {
-    start();
+    sync();
+  }, [sync]);
+
+  // Ao fechar o app, desliga tudo.
+  useEffect(() => {
     return () => {
       genRef.current++;
-      stopStream();
+      closeAll();
       nodesRef.current?.ch.forEach((n) => n.iso?.destroy?.());
       try {
         toneRef.current?.osc.stop();
@@ -527,13 +682,19 @@ export function useMixer() {
 
     const process = () => {
       const nodes = nodesRef.current;
-      if (!nodes || !streamRef.current) return;
+      if (!nodes || !liveRef.current) return;
       const now = performance.now();
 
-      // Estéreo falso: compara os dois lados crus (média móvel de ~0,5 s).
-      if (nodes.rawL && nodes.rawR) {
-        nodes.rawL.getFloatTimeDomainData(rawBufL);
-        nodes.rawR.getFloatTimeDomainData(rawBufR);
+      // Estéreo falso: compara os dois lados crus (média móvel de ~0,5 s). Só faz sentido
+      // com um receptor para os dois microfones.
+      const single = modeRef.current === 'single' ? devicesRef.current.get(singleKeyRef.current) : null;
+      if (!single && dualMonoRef.current) {
+        dualMonoRef.current = false;
+        setDualMono(false);
+      }
+      if (single && !single.ended) {
+        single.rawL.getFloatTimeDomainData(rawBufL);
+        single.rawR.getFloatTimeDomainData(rawBufR);
         let ll = 0;
         let rr = 0;
         let lr = 0;
@@ -657,7 +818,7 @@ export function useMixer() {
     const tick = (now) => {
       raf = requestAnimationFrame(tick);
       const nodes = nodesRef.current;
-      if (!nodes || !streamRef.current) return;
+      if (!nodes || !liveRef.current) return;
       if (++frame % 2) return;
 
       const ch = nodes.ch.map((n, i) => {
@@ -846,27 +1007,46 @@ export function useMixer() {
     writeStored('deviceId', deviceId);
   }, [deviceId]);
 
+  useEffect(() => {
+    writeStored('mode', mode);
+    writeStored('dualDevices', dualDevices);
+  }, [mode, dualDevices]);
+
   // Plugou ou tirou o receptor: atualiza a lista e reconecta sozinho se preciso.
   useEffect(() => {
     const md = navigator.mediaDevices;
     if (!md?.addEventListener) return;
     const onChange = async () => {
-      const inputs = await refreshDevices();
-      if (['disconnected', 'notfound', 'busy'].includes(statusRef.current) && inputs.length > 0) {
-        start('');
-      }
+      await refreshDevices();
+      const routes = routesFor(modeRef.current, singleKeyRef.current, dualDevicesRef.current);
+      const missing = routes.some((r) => {
+        const e = devicesRef.current.get(r.key);
+        return !e || e.ended;
+      });
+      if (missing) syncRef.current?.();
     };
     md.addEventListener('devicechange', onChange);
     return () => md.removeEventListener('devicechange', onChange);
-  }, [refreshDevices, start]);
+  }, [refreshDevices]);
 
-  const chooseDevice = useCallback(
-    (id) => {
-      setDeviceId(id);
-      start(id);
-    },
-    [start],
-  );
+  // Trocar de receptor só muda o estado: o efeito de sincronização reabre o que for preciso.
+  const chooseDevice = useCallback((id) => setDeviceId(id), []);
+
+  const setMode = useCallback((m) => {
+    setModeState(m);
+    // Primeira vez no modo de dois receptores: já sugere os dois primeiros aparelhos.
+    if (m === 'dual') {
+      setDualDevices((d) => {
+        if (d[0] || d[1]) return d;
+        const real = devicesListRef.current.filter((x) => x.id !== 'default' && x.id !== 'communications');
+        return [real[0]?.id ?? '', real[1]?.id ?? ''];
+      });
+    }
+  }, []);
+
+  const setDualDevice = useCallback((i, id) => {
+    setDualDevices((d) => d.map((v, j) => (j === i ? id : v)));
+  }, []);
 
   const setChannel = useCallback((i, patch) => {
     setChannels((list) => list.map((c, j) => (j === i ? { ...c, ...patch } : c)));
@@ -924,7 +1104,12 @@ export function useMixer() {
     retryIsolator: () => {
       setIsolator({ status: 'idle', kind: null });
     },
-    retry: () => start(deviceId),
+    retry: () => sync(),
+    mode,
+    setMode,
+    dualDevices,
+    setDualDevice,
+    sources,
     auditorium,
     setAuditorium,
     outputOn,

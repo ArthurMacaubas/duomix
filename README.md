@@ -91,7 +91,18 @@ tudo no canal 1.
 | Receptor de câmera (P2) na **entrada de microfone** do PC | ❌ Essa entrada é mono: os dois chegam misturados |
 | Receptor USB-C (versão celular) no PC | ❌ Segundo os manuais, só faz mono |
 | Receptor de câmera em **modo estéreo** (LEDs azuis) numa **interface de áudio USB com entrada estéreo** | ✅ |
-| **Um receptor para cada microfone** (dois kits) | ✅ (precisa do suporte a dois receptores, ainda não feito) |
+| **Um receptor para cada microfone** (dois kits) | ✅ Em ⚙ Ajustes, escolha "Um receptor para cada microfone" |
+
+## Dois receptores (dois kits)
+
+Em **⚙ Ajustes → Como os microfones estão ligados**, escolha **"Um receptor para cada microfone"** e diga qual
+receptor é de qual microfone. Cada canal usa o seu receptor inteiro, então separa mesmo com receptores mono
+(como o USB-C).
+
+- Cada canal mostra de qual receptor o som está vindo.
+- Se um receptor for desconectado, o outro continua funcionando, e a mesa reconecta sozinha quando ele volta.
+- Precisa de duas portas USB livres (ou adaptadores). Dois aparelhos USB têm "relógios" de áudio levemente
+  diferentes: no fone ou no auditório isso costuma passar despercebido, mas pode dar um estalo raro.
 
 ## Receptor em estéreo
 

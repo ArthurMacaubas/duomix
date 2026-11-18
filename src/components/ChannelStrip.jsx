@@ -10,6 +10,14 @@ const NOISE_OPTIONS = [
   { value: 'forte', label: 'Forte', help: 'Também abaixa o som quando a pessoa não está falando' },
 ];
 
+const OFFLINE_TEXT = {
+  disconnected: 'O receptor deste microfone foi desconectado. Encaixe de novo: ele volta sozinho.',
+  notfound: 'Não achei o receptor escolhido para este microfone. Confira se está encaixado ou escolha outro em ⚙ Ajustes.',
+  busy: 'Outro programa está usando o receptor deste microfone. Feche-o e ele volta sozinho.',
+  denied: 'Sem permissão para usar o receptor deste microfone.',
+  error: 'O receptor deste microfone não respondeu. Tire e coloque de novo.',
+};
+
 /** Frase curta em vez de números: o que o leigo precisa saber deste microfone. */
 function channelMessage({ ready, inactive, muted, calibrating, meter }) {
   if (!ready) return { tone: 'idle', text: 'Esperando o receptor…' };
@@ -36,6 +44,8 @@ export default function ChannelStrip({
   calibrating,
   isolator,
   dualMono,
+  source,
+  mode,
   ducked,
   duckedBy,
   mutedTalking,
@@ -174,7 +184,19 @@ export default function ChannelStrip({
         </span>
       </div>
 
-      {inactive && ready && (
+      {ready && source && (
+        <p className={`strip__source${source.online ? '' : ' is-off'}`}>
+          {source.online
+            ? `${source.label}${mode === 'single' ? (source.side === 'left' ? ' · lado esquerdo' : ' · lado direito') : ''}`
+            : 'Receptor fora do ar'}
+        </p>
+      )}
+
+      {ready && source && !source.online && (
+        <p className="strip__mono">{OFFLINE_TEXT[source.reason] ?? OFFLINE_TEXT.error}</p>
+      )}
+
+      {inactive && ready && source?.online !== false && (
         <p className="strip__mono">
           {dualMono ? (
             <>

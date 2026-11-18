@@ -33,7 +33,12 @@ const MIME = {
 const ALLOWED_PERMISSIONS = new Set(['media', 'speaker-selection', 'screen-wake-lock', 'audioCapture']);
 
 // O teste automático usa uma pasta de dados própria, para não mexer nas configurações reais do app.
-if (SELFTEST) app.setPath('userData', path.join(app.getPath('temp'), 'duomix-selftest'));
+// Começa sempre de uma pasta limpa, para um teste não herdar o modo salvo por outro.
+if (SELFTEST) {
+  const dir = path.join(app.getPath('temp'), 'duomix-selftest');
+  require('node:fs').rmSync(dir, { recursive: true, force: true });
+  app.setPath('userData', dir);
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -141,11 +146,29 @@ function runSelfTest(w) {
     const js = (code) => w.webContents.executeJavaScript(code, true);
     const result = { loaded: true };
     try {
-      await js(`localStorage.setItem('dm:onboarded','1'); location.reload(); true`);
+      // DUOMIX_SELFTEST_DUAL=1: testa o modo de dois receptores com os dois primeiros aparelhos reais.
+      const dual = process.env.DUOMIX_SELFTEST_DUAL === '1';
+      // Espera a mesa terminar de abrir (e salvar o próprio estado) antes de mudar os ajustes.
+      await wait(1500);
+      await js(`(async () => {
+        localStorage.setItem('dm:onboarded', '1');
+        localStorage.setItem('dm:mode', JSON.stringify('single'));
+        if (${dual}) {
+          await navigator.mediaDevices.getUserMedia({ audio: true }).then((s) => s.getTracks().forEach((t) => t.stop()));
+          const ids = (await navigator.mediaDevices.enumerateDevices())
+            .filter((d) => d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications')
+            .map((d) => d.deviceId);
+          localStorage.setItem('dm:mode', JSON.stringify('dual'));
+          localStorage.setItem('dm:dualDevices', JSON.stringify([ids[0] || '', ids[1] || '']));
+        }
+        location.reload();
+        return true;
+      })()`);
       await wait(4000);
       result.title = await js('document.title');
       result.desktop = await js('Boolean(window.duomix && window.duomix.desktop)');
       result.status = await js(`document.querySelector('.status')?.textContent`);
+      result.sources = await js(`[...document.querySelectorAll('.strip__source')].map((e) => e.textContent)`);
       result.sinkSupported = await js(`typeof AudioContext.prototype.setSinkId === 'function'`);
       result.inputs = await js(
         `navigator.mediaDevices.enumerateDevices().then(l => l.filter(d => d.kind === 'audioinput').map(d => d.label))`,

@@ -485,3 +485,25 @@
     margin-top: -10px;
   }
 }
+
+/* De onde vem o som deste canal (receptor e lado). */
+.strip__source {
+  margin: -6px 0 0;
+  overflow: hidden;
+  color: var(--text-lo);
+  font-size: 12px;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.strip__source.is-off {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+@media (max-width: 699px) {
+  .strip > .strip__source {
+    grid-column: 1 / -1;
+  }
+}

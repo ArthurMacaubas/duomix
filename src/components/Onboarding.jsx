@@ -73,6 +73,10 @@ export default function Onboarding({ mixer, onDone }) {
                 ? mixer.deviceLabel
                 : 'Encaixe o receptor na porta USB-C do computador e ligue os dois microfones. Se aparecer um aviso, clique em "Permitir".'}
             </p>
+            <p className="onboarding__text onboarding__text--small">
+              Usa um receptor para cada microfone (dois kits)? Depois escolha &quot;Um receptor para cada microfone&quot; em ⚙
+              Ajustes.
+            </p>
             {!ready && <ProblemBanner status={mixer.status} onRetry={mixer.retry} />}
           </div>
         )}

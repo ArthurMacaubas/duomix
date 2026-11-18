@@ -308,3 +308,69 @@
     text-align: left;
   }
 }
+
+/* Modo de ligação dos microfones (um ou dois receptores). */
+.conn {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.conn legend {
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.conn__opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: var(--face);
+  cursor: pointer;
+  transition: border-color var(--dur), background var(--dur);
+}
+
+.conn__opt.is-on {
+  border-color: var(--yellow);
+  background: rgb(245 217 10 / 0.08);
+}
+
+.conn__opt input {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--yellow);
+}
+
+.conn__opt span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.conn__opt small {
+  color: var(--text-lo);
+  font-size: 13px;
+}
+
+.sheet .field + .field {
+  margin-top: 12px;
+}
+
+.conn__warn {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-sm);
+  background: rgb(255 176 32 / 0.08);
+  font-size: 14px;
+}
+.onboarding__text--small {
+  font-size: 14px;
+}
