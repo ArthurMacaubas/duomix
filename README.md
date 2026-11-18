@@ -9,6 +9,22 @@ botões amarelos, LEDs ciano e o friso creme do estojo.
 **Autor:** Arthur Macaúbas
 © 2026 Arthur Macaúbas. Todos os direitos reservados.
 
+## ⬇️ Baixar e instalar (Windows)
+
+1. Vá em **[Releases](https://github.com/ArthurMacaubas/duomix/releases/latest)** e baixe `DuoMix-Setup-1.0.0.exe`.
+2. Abra o arquivo e siga o instalador (dá para escolher a pasta). Ele cria atalhos na área de trabalho e no menu Iniciar.
+3. O Windows pode mostrar **"O Windows protegeu o computador"**, porque o instalador ainda não tem assinatura digital
+   (certificado pago). Clique em **Mais informações → Executar assim mesmo**.
+
+No app de computador o DuoMix:
+
+- usa o microfone e as saídas de áudio sem pedir "Permitir";
+- continua processando com a janela minimizada (portões, anti-vazamento e isolador não param);
+- mantém a tela ligada no Modo Auditório;
+- abre uma janela só (abrir de novo traz a que já está aberta).
+
+Para desinstalar: **Configurações do Windows → Aplicativos → DuoMix → Desinstalar**.
+
 ## O que ele faz
 
 - **Um canal para cada microfone (TX1 e TX2)**, com nome editável, medidor de LEDs, fader, mudo e redutor de ruído próprios.
@@ -56,6 +72,14 @@ npm run dev
 
 O navegador abre sozinho. Use o Chrome ou o Edge e clique em "Permitir" quando ele pedir o microfone.
 
+Para o app de computador e o instalador:
+
+```bash
+npm run app    # abre o DuoMix como app (Electron)
+npm run dist   # gera o instalador em release/DuoMix-Setup-<versão>.exe
+npm run icon   # refaz build/icon.png a partir de public/logo.svg
+```
+
 ## Receptor em estéreo
 
 Receptores duplos mandam o microfone 1 no canal esquerdo e o microfone 2 no direito **quando estão em modo estéreo**.
@@ -68,6 +92,10 @@ src/
   hooks/useMixer.js        toda a parte de áudio (Web Audio API): separa os canais, faders, portões, master
   components/              ChannelStrip, MasterStrip, Fader, Knob, SegmentMeter, ajustes, guia inicial
   styles/tokens.css        cores do kit e fontes
+electron/
+  main.cjs                 app de computador: janela, endereço seguro app://duomix, permissões
+  preload.cjs              avisa a mesa de que ela está rodando como app
+build/icon.png             ícone do app e do instalador
 ```
 
 ## Limitação atual

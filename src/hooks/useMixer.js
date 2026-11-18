@@ -40,6 +40,8 @@ import rnnoiseSimdWasmUrl from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wa
  */
 
 export const CHANNELS = 2;
+// Rodando como app de computador (Electron)? O preload expõe window.duomix.
+const IS_DESKTOP_APP = typeof window !== 'undefined' && window.duomix?.desktop === true;
 const MIN_DB = -60;
 const MAX_DB = -3;
 const SILENCE_DB = -52;
@@ -470,7 +472,7 @@ export function useMixer() {
   }, []);
 
   // Portões, anti-vazamento, aviso de mudo e calibração: loop próprio de 30 ms, separado da tela.
-  // Com a janela escondida, portões e anti-vazamento ficam soltos: na dúvida, a voz passa.
+  // No navegador, com a janela escondida, portões e anti-vazamento ficam soltos: na dúvida, a voz passa.
   useEffect(() => {
     const buf = new Float32Array(1024);
     let ticks = 0;
@@ -501,7 +503,8 @@ export function useMixer() {
       if (!nodes || !streamRef.current) return;
       const now = performance.now();
       const active = channelCountRef.current;
-      if (document.hidden) {
+      // No app de computador o processamento continua mesmo minimizado (sem congelamento).
+      if (document.hidden && !IS_DESKTOP_APP) {
         for (let i = 0; i < CHANNELS; i++) {
           setGate(i, false);
           setDuck(i, false);
